@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
@@ -10,7 +11,6 @@ public class OpenAIService
     private readonly string apiKey;
 
     private const string Model = "gpt-5-mini";
-
     private const int MaxConversationRounds = 3;
 
     private readonly List<ConversationMessage> history =
@@ -44,61 +44,59 @@ public class OpenAIService
     }
 
 
-    public async Task<string> AskAsync(string userText)
+    // =========================================================
+    // GPT Streaming
+    // =========================================================
+
+    public async Task<string> AskStreamingAsync(
+        string userText,
+        Action<string> onDelta,
+        CancellationToken cancellationToken)
     {
-        StringBuilder prompt = new StringBuilder();
+        string prompt =
+            BuildPrompt(userText);
 
-        prompt.AppendLine(CharacterPrompt);
 
-
-        if (history.Count > 0)
-        {
-            prompt.AppendLine();
-            prompt.AppendLine("以下是你和使用者最近的對話紀錄：");
-
-            foreach (ConversationMessage message in history)
+        ResponseRequest requestBody =
+            new ResponseRequest
             {
-                prompt.AppendLine(
-                    $"{message.Role}：{message.Text}"
-                );
-            }
-        }
-
-
-        prompt.AppendLine();
-        prompt.AppendLine($"玩家：{userText}");
-        prompt.AppendLine();
-        prompt.AppendLine(
-            "請根據前面的對話脈絡，以角色身分直接回答玩家。"
-        );
+                model = Model,
+                input = prompt,
+                stream = true
+            };
 
 
         string json =
             JsonUtility.ToJson(
-                new ResponseRequest
-                {
-                    model = Model,
-                    input = prompt.ToString()
-                }
+                requestBody
+            );
+
+
+        byte[] body =
+            Encoding.UTF8.GetBytes(
+                json
+            );
+
+
+        StreamingDownloadHandler downloadHandler =
+            new StreamingDownloadHandler(
+                onDelta
             );
 
 
         using UnityWebRequest request =
             new UnityWebRequest(
                 "https://api.openai.com/v1/responses",
-                "POST"
+                UnityWebRequest.kHttpVerbPOST
             );
-
-
-        byte[] body =
-            Encoding.UTF8.GetBytes(json);
 
 
         request.uploadHandler =
             new UploadHandlerRaw(body);
 
+
         request.downloadHandler =
-            new DownloadHandlerBuffer();
+            downloadHandler;
 
 
         request.SetRequestHeader(
@@ -106,9 +104,15 @@ public class OpenAIService
             "application/json"
         );
 
+
         request.SetRequestHeader(
             "Authorization",
             $"Bearer {apiKey}"
+        );
+
+
+        Debug.Log(
+            "🧠 GPT Streaming 開始..."
         );
 
 
@@ -116,39 +120,164 @@ public class OpenAIService
             request.SendWebRequest();
 
 
+        // =====================================================
+        // 等 GPT
+        //
+        // 同時檢查是否被 Barge-in 取消
+        // =====================================================
+
         while (!operation.isDone)
         {
+            if (
+                cancellationToken
+                    .IsCancellationRequested
+            )
+            {
+                request.Abort();
+
+                throw new
+                    OperationCanceledException(
+                        cancellationToken
+                    );
+            }
+
+
             await Task.Yield();
         }
 
 
-        if (request.result != UnityWebRequest.Result.Success)
+        cancellationToken
+            .ThrowIfCancellationRequested();
+
+
+        if (
+            request.result !=
+            UnityWebRequest.Result.Success
+        )
         {
             throw new Exception(
-                $"OpenAI API 錯誤：{request.responseCode}\n" +
-                request.downloadHandler.text
+                $"OpenAI Streaming API 錯誤：" +
+                $"{request.responseCode}\n" +
+                downloadHandler.ErrorText
             );
         }
 
 
-        ResponseResult response =
-            JsonUtility.FromJson<ResponseResult>(
-                request.downloadHandler.text
+        string fullReply =
+            downloadHandler.FullText;
+
+
+        if (
+            string.IsNullOrWhiteSpace(
+                fullReply
+            )
+        )
+        {
+            throw new Exception(
+                "GPT Streaming 完成，但沒有取得文字。"
+            );
+        }
+
+
+        // =====================================================
+        // 只有「正常完成」的回答才寫進記憶
+        //
+        // 被玩家打斷的回答不寫入 history。
+        // =====================================================
+
+        history.Add(
+            new ConversationMessage(
+                "玩家",
+                userText
+            )
+        );
+
+
+        history.Add(
+            new ConversationMessage(
+                "角色",
+                fullReply
+            )
+        );
+
+
+        TrimHistory();
+
+
+        Debug.Log(
+            "✅ GPT Streaming 完成"
+        );
+
+
+        return fullReply;
+    }
+
+
+    // =========================================================
+    // Prompt
+    // =========================================================
+
+    private string BuildPrompt(
+        string userText)
+    {
+        StringBuilder prompt =
+            new StringBuilder();
+
+
+        prompt.AppendLine(
+            CharacterPrompt
+        );
+
+
+        if (history.Count > 0)
+        {
+            prompt.AppendLine();
+
+
+            prompt.AppendLine(
+                "以下是你和使用者最近的對話紀錄："
             );
 
 
-        string reply = ExtractOutputText(response);
+            foreach (
+                ConversationMessage message
+                in history
+            )
+            {
+                prompt.AppendLine(
+                    $"{message.Role}：" +
+                    $"{message.Text}"
+                );
+            }
+        }
 
 
-        history.Add(
-            new ConversationMessage("玩家", userText)
+        prompt.AppendLine();
+
+
+        prompt.AppendLine(
+            $"玩家：{userText}"
         );
 
-        history.Add(
-            new ConversationMessage("角色", reply)
+
+        prompt.AppendLine();
+
+
+        prompt.AppendLine(
+            "請根據前面的對話脈絡，以角色身分直接回答玩家。"
         );
 
 
+        return prompt.ToString();
+    }
+
+
+    // =========================================================
+    // Memory
+    // =========================================================
+
+    private void TrimHistory()
+    {
         while (
             history.Count >
             MaxConversationRounds * 2
@@ -156,49 +285,12 @@ public class OpenAIService
         {
             history.RemoveAt(0);
 
+
             if (history.Count > 0)
             {
                 history.RemoveAt(0);
             }
         }
-
-
-        return reply;
-    }
-
-
-    private string ExtractOutputText(
-        ResponseResult response)
-    {
-        if (
-            response == null ||
-            response.output == null
-        )
-        {
-            return "目前沒有取得回覆。";
-        }
-
-
-        foreach (OutputItem item in response.output)
-        {
-            if (item.content == null)
-                continue;
-
-
-            foreach (ContentItem content in item.content)
-            {
-                if (
-                    content.type == "output_text" &&
-                    !string.IsNullOrEmpty(content.text)
-                )
-                {
-                    return content.text;
-                }
-            }
-        }
-
-
-        return "目前沒有取得回覆。";
     }
 
 
@@ -208,37 +300,255 @@ public class OpenAIService
     }
 
 
-    // =========================================
-    // JSON Classes
-    // =========================================
+    // =========================================================
+    // JSON
+    // =========================================================
 
     [Serializable]
     private class ResponseRequest
     {
         public string model;
         public string input;
+        public bool stream;
     }
 
 
     [Serializable]
-    private class ResponseResult
-    {
-        public OutputItem[] output;
-    }
-
-
-    [Serializable]
-    private class OutputItem
-    {
-        public ContentItem[] content;
-    }
-
-
-    [Serializable]
-    private class ContentItem
+    private class StreamingEvent
     {
         public string type;
-        public string text;
+        public string delta;
+    }
+
+
+    // =========================================================
+    // SSE Streaming
+    // =========================================================
+
+    private class StreamingDownloadHandler
+        : DownloadHandlerScript
+    {
+        private readonly
+            Action<string> onDelta;
+
+
+        private readonly StringBuilder
+            pendingData =
+                new StringBuilder();
+
+
+        private readonly StringBuilder
+            fullText =
+                new StringBuilder();
+
+
+        private readonly StringBuilder
+            rawResponse =
+                new StringBuilder();
+
+
+        public string FullText =>
+            fullText.ToString();
+
+
+        public string ErrorText =>
+            rawResponse.ToString();
+
+
+        public StreamingDownloadHandler(
+            Action<string> onDelta)
+            : base(new byte[8192])
+        {
+            this.onDelta =
+                onDelta;
+        }
+
+
+        protected override bool ReceiveData(
+            byte[] data,
+            int dataLength)
+        {
+            if (
+                data == null ||
+                dataLength <= 0
+            )
+            {
+                return true;
+            }
+
+
+            string chunk =
+                Encoding.UTF8.GetString(
+                    data,
+                    0,
+                    dataLength
+                );
+
+
+            rawResponse.Append(
+                chunk
+            );
+
+
+            pendingData.Append(
+                chunk
+            );
+
+
+            ProcessSseBuffer();
+
+
+            return true;
+        }
+
+
+        private void ProcessSseBuffer()
+        {
+            string current =
+                pendingData
+                    .ToString()
+                    .Replace(
+                        "\r\n",
+                        "\n"
+                    );
+
+
+            int separatorIndex;
+
+
+            while (
+                (
+                    separatorIndex =
+                        current.IndexOf(
+                            "\n\n",
+                            StringComparison.Ordinal
+                        )
+                ) >= 0
+            )
+            {
+                string eventBlock =
+                    current.Substring(
+                        0,
+                        separatorIndex
+                    );
+
+
+                current =
+                    current.Substring(
+                        separatorIndex + 2
+                    );
+
+
+                ProcessSseEvent(
+                    eventBlock
+                );
+            }
+
+
+            pendingData.Clear();
+
+
+            pendingData.Append(
+                current
+            );
+        }
+
+
+        private void ProcessSseEvent(
+            string eventBlock)
+        {
+            if (
+                string.IsNullOrWhiteSpace(
+                    eventBlock
+                )
+            )
+            {
+                return;
+            }
+
+
+            string[] lines =
+                eventBlock.Split('\n');
+
+
+            foreach (
+                string rawLine
+                in lines
+            )
+            {
+                string line =
+                    rawLine.Trim();
+
+
+                if (
+                    !line.StartsWith(
+                        "data:",
+                        StringComparison.Ordinal
+                    )
+                )
+                {
+                    continue;
+                }
+
+
+                string json =
+                    line.Substring(5)
+                        .Trim();
+
+
+                if (
+                    string.IsNullOrWhiteSpace(
+                        json
+                    ) ||
+                    json == "[DONE]"
+                )
+                {
+                    continue;
+                }
+
+
+                try
+                {
+                    StreamingEvent evt =
+                        JsonUtility
+                            .FromJson<
+                                StreamingEvent
+                            >(json);
+
+
+                    if (
+                        evt == null ||
+                        evt.type !=
+                        "response.output_text.delta" ||
+                        string.IsNullOrEmpty(
+                            evt.delta
+                        )
+                    )
+                    {
+                        continue;
+                    }
+
+
+                    fullText.Append(
+                        evt.delta
+                    );
+
+
+                    onDelta?.Invoke(
+                        evt.delta
+                    );
+                }
+                catch (
+                    Exception ex
+                )
+                {
+                    Debug.LogWarning(
+                        $"⚠️ GPT SSE 解析失敗：" +
+                        $"{ex.Message}"
+                    );
+                }
+            }
+        }
     }
 
 
