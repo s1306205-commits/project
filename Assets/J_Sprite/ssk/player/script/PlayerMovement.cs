@@ -4,6 +4,10 @@ using UnityEngine;
 
 public class PlayerMovement : MonoBehaviour
 {
+    // =========================================================
+    // Movement Settings
+    // =========================================================
+
     [Header("Movement Settings")]
 
     public float moveSpeed = 5f;
@@ -13,38 +17,103 @@ public class PlayerMovement : MonoBehaviour
     public float gravity = -9.81f;
 
 
+    // =========================================================
+    // Camera
+    // =========================================================
+
     [Header("Camera")]
 
     public Transform playerCamera;
 
 
+    // =========================================================
+    // Front Character
+    // =========================================================
+
+    [Header("Front Character")]
+
+    // Kiwi
+    public Transform frontObject;
+
+    // Ë∑ùÈõ¢ Camera Â§öÈÅ†
+    public float frontDistance = 2f;
+
+    // ‰∏ä‰∏ã‰ΩçÁΩÆ
+    public float frontHeightOffset = 0f;
+
+    // Â∑¶Âè≥‰ΩçÁΩÆ
+    public float frontHorizontalOffset = 0f;
+
+
+    // =========================================================
+    // Private
+    // =========================================================
+
     private CharacterController controller;
 
     private float verticalVelocity;
 
+    private bool isMoving;
 
-    void Start()
+
+    // =========================================================
+    // Public
+    // =========================================================
+
+    public bool IsMoving
     {
-        controller = GetComponent<CharacterController>();
+        get
+        {
+            return isMoving;
+        }
     }
 
 
+    // =========================================================
+    // Start
+    // =========================================================
+
+    void Start()
+    {
+        controller =
+            GetComponent<CharacterController>();
+    }
+
+
+    // =========================================================
+    // Update
+    // =========================================================
+
     void Update()
     {
-        float horizontal = Input.GetAxis("Horizontal");
+        float horizontal =
+            Input.GetAxis("Horizontal");
 
-        float vertical = Input.GetAxis("Vertical");
-
-
-        // ®˙±o√Ë¿Y™∫´e§Ë§Œ•k§Ë
-
-        Vector3 forward = playerCamera.forward;
-
-        Vector3 right = playerCamera.right;
+        float vertical =
+            Input.GetAxis("Vertical");
 
 
-        // ≤æ∞£§W§U§Ë¶V
+        // =====================================================
+        // Âà§Êñ∑Áé©ÂÆ∂ÊòØÂê¶Ê≠£Âú®ÁßªÂãï
+        // =====================================================
 
+        isMoving =
+            Mathf.Abs(horizontal) > 0.01f ||
+            Mathf.Abs(vertical) > 0.01f;
+
+
+        // =====================================================
+        // Camera ÊñπÂêë
+        // =====================================================
+
+        Vector3 forward =
+            playerCamera.forward;
+
+        Vector3 right =
+            playerCamera.right;
+
+
+        // ‰∏çËÆì Camera ‰∏ä‰∏ãËßíÂ∫¶ÂΩ±ÈüøÁé©ÂÆ∂ÁßªÂãï
         forward.y = 0f;
 
         right.y = 0f;
@@ -55,46 +124,162 @@ public class PlayerMovement : MonoBehaviour
         right.Normalize();
 
 
-        // ≠p∫‚≤æ∞ §Ë¶V
+        // =====================================================
+        // ÁßªÂãïÊñπÂêë
+        // =====================================================
 
         Vector3 move =
             right * horizontal +
             forward * vertical;
 
 
-        move = Vector3.ClampMagnitude(move, 1f);
+        move =
+            Vector3.ClampMagnitude(
+                move,
+                1f
+            );
 
 
-        // §@ØÎ®´∏Ù≥t´◊
+        // =====================================================
+        // ÈÄüÂ∫¶
+        // =====================================================
 
-        float currentSpeed = moveSpeed;
+        float currentSpeed =
+            moveSpeed;
 
 
-        // Shift ©b∂]
-
-        if (Input.GetKey(KeyCode.LeftShift))
+        if (
+            Input.GetKey(
+                KeyCode.LeftShift
+            )
+        )
         {
-            currentSpeed = runSpeed;
+            currentSpeed =
+                runSpeed;
         }
 
 
-        // ≠´§O
+        // =====================================================
+        // Gravity
+        // =====================================================
 
-        if (controller.isGrounded && verticalVelocity < 0)
+        if (
+            controller.isGrounded &&
+            verticalVelocity < 0
+        )
         {
             verticalVelocity = -2f;
         }
 
-        verticalVelocity += gravity * Time.deltaTime;
+
+        verticalVelocity +=
+            gravity *
+            Time.deltaTime;
 
 
-        // §Ù•≠≤æ∞ ªP≠´§O
+        // =====================================================
+        // Move
+        // =====================================================
 
         Vector3 velocity =
             move * currentSpeed +
-            Vector3.up * verticalVelocity;
+            Vector3.up *
+            verticalVelocity;
+
+
         controller.Move(
-            velocity * Time.deltaTime
+            velocity *
+            Time.deltaTime
         );
+    }
+
+
+    // =========================================================
+    // Late Update
+    // =========================================================
+
+    void LateUpdate()
+    {
+        UpdateFrontObject();
+    }
+
+
+    // =========================================================
+    // Kiwi Ë∑üÈö®
+    // =========================================================
+
+    void UpdateFrontObject()
+    {
+        if (
+            playerCamera == null ||
+            frontObject == null
+        )
+        {
+            return;
+        }
+
+
+        // =====================================================
+        // ‰ΩçÁΩÆÊ∞∏ÈÅ†Âú® Camera ÂâçÊñπ
+        // =====================================================
+
+        Vector3 targetPosition =
+            playerCamera.position
+            +
+            playerCamera.forward *
+            frontDistance
+            +
+            playerCamera.up *
+            frontHeightOffset
+            +
+            playerCamera.right *
+            frontHorizontalOffset;
+
+
+        frontObject.position =
+            targetPosition;
+
+
+        // =====================================================
+        // Rotation
+        // =====================================================
+
+        Vector3 playerRotation =
+            transform.eulerAngles;
+
+
+        if (isMoving)
+        {
+            // -------------------------------------------------
+            // Áé©ÂÆ∂ÁßªÂãïÔºö
+            //
+            // Kiwi Ë∑ü Player ÂêåÊñπÂêë
+            //
+            // ‰πãÂæåÈÄôÂÄãÁãÄÊÖãÂèØ‰ª•Êí≠Êîæ Fly„ÄÇ
+            // -------------------------------------------------
+
+            frontObject.rotation =
+                Quaternion.Euler(
+                    playerRotation.x,
+                    playerRotation.y,
+                    playerRotation.z
+                );
+        }
+        else
+        {
+            // -------------------------------------------------
+            // Áé©ÂÆ∂ÈùúÊ≠¢Ôºö
+            //
+            // Kiwi ËΩâÈÅé‰æÜÈù¢Â∞ç Player„ÄÇ
+            // Y ÊØî Player Â§ö 180 Â∫¶„ÄÇ
+            // -------------------------------------------------
+
+            frontObject.rotation =
+                Quaternion.Euler(
+                    playerRotation.x,
+                    playerRotation.y + 180f,
+                    playerRotation.z
+                );
+        }
     }
 }

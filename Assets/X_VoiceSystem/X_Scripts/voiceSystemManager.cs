@@ -21,13 +21,20 @@ public class VoiceSystemManager : MonoBehaviour
 
 
     // =========================================================
+    // Character Animation
+    // =========================================================
+
+    [Header("Character Animation")]
+
+    public KiwiAnimationController kiwiAnimation;
+
+
+    // =========================================================
     // Barge-in 設定
     // =========================================================
 
-    // 玩家語音至少持續多久才算插話
     private const float BargeInConfirmSeconds = 0.35f;
 
-    // 至少辨識出幾個字
     private const int BargeInMinCharacters = 2;
 
 
@@ -78,7 +85,14 @@ public class VoiceSystemManager : MonoBehaviour
     private readonly SemaphoreSlim ttsTextSendLock =
         new SemaphoreSlim(1, 1);
 
+    // =========================================================
+    // AI 說完後的 STT 防誤觸
+    // =========================================================
 
+    // AI 說完後多久內，不允許 STT 開啟新的玩家對話
+    private const float PostTtsIgnoreSeconds = 0.5f;
+
+    private float ignorePlayerSpeechUntil = 0f;
     // =========================================================
     // Start
     // =========================================================
@@ -156,10 +170,6 @@ public class VoiceSystemManager : MonoBehaviour
             HandleFinalTranscriptAsync;
 
 
-        // ★ Barge-in 2.0
-        //
-        // 不再使用 SpeechDetected。
-        // 直接看 partial transcript 的持續變化。
         sttService.PartialTranscriptReceived +=
             HandlePartialTranscript;
 
@@ -192,20 +202,11 @@ public class VoiceSystemManager : MonoBehaviour
 
     private void Update()
     {
-        // =====================================================
-        // Barge-in 模式：
-        //
-        // AI 說話時麥克風也必須持續送 STT，
-        // 否則不可能偵測玩家插話。
-        // =====================================================
-
+        // 麥克風持續送給 STT
         sttService?.UpdateMicrophone();
 
 
-        // =====================================================
-        // 檢查 Barge-in candidate 持續時間
-        // =====================================================
-
+        // 每幀檢查 Barge-in
         CheckBargeInCandidate();
     }
 
@@ -217,6 +218,10 @@ public class VoiceSystemManager : MonoBehaviour
     private void HandlePartialTranscript(
         string partial)
     {
+        // =====================================================
+        // 空文字直接忽略
+        // =====================================================
+
         if (
             string.IsNullOrWhiteSpace(
                 partial
@@ -228,11 +233,37 @@ public class VoiceSystemManager : MonoBehaviour
 
 
         // =====================================================
-        // AI 沒有真的播放聲音
+        // 玩家語音動畫判斷
         //
-        // 不需要進行插話判斷。
+        // 只有：
+        // 1. AI 沒有正在說話
+        // 2. AI 說完後的冷卻期已經結束
+        //
+        // 才允許 Partial 開啟新的 Talk。
         // =====================================================
 
+        bool canStartPlayerConversation =
+            !IsAiActuallySpeaking()
+            &&
+            Time.realtimeSinceStartup >=
+            ignorePlayerSpeechUntil;
+
+
+        if (canStartPlayerConversation)
+        {
+            kiwiAnimation?.
+                OnPlayerSpeechPartial(
+                    partial
+                );
+        }
+
+        // =====================================================
+        // 以下保持原本 Barge-in 2.0
+        // =====================================================
+
+
+        // AI 沒有真的播放聲音
+        // 就不需要判斷是不是插話
         if (!IsAiActuallySpeaking())
         {
             ResetBargeInCandidate();
@@ -252,18 +283,21 @@ public class VoiceSystemManager : MonoBehaviour
 
 
         // =====================================================
-        // 第一次收到 candidate
+        // 第一次收到插話候選
         // =====================================================
 
         if (!bargeInCandidateActive)
         {
             bargeInCandidateActive = true;
 
+
             bargeInCandidateStartTime =
                 Time.realtimeSinceStartup;
 
+
             lastBargeInPartial =
                 cleanPartial;
+
 
             bargeInPartialGrowthCount = 0;
 
@@ -278,15 +312,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
         // =====================================================
-        // Partial 有繼續成長
-        //
-        // 例如：
-        //
-        // 等
-        // 等一下
-        // 等一下我
-        //
-        // 才算真的有持續說話跡象。
+        // Partial 有繼續增加
         // =====================================================
 
         if (
@@ -311,23 +337,16 @@ public class VoiceSystemManager : MonoBehaviour
                 $"({duration * 1000f:F0} ms)"
             );
         }
+
+        // =====================================================
+        // STT 修改原本辨識結果
+        // =====================================================
+
         else if (
             cleanPartial !=
             lastBargeInPartial
         )
         {
-            // =================================================
-            // STT 有時不是單純 append，
-            // 而是修改前面的辨識結果。
-            //
-            // 例如：
-            //
-            // 等一
-            // 等一下
-            //
-            // 這仍然算有效更新。
-            // =================================================
-
             bargeInPartialGrowthCount++;
 
 
@@ -338,7 +357,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
     // =========================================================
-    // 每幀確認 Barge-in
+    // Barge-in 判斷
     // =========================================================
 
     private void CheckBargeInCandidate()
@@ -355,7 +374,6 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        // AI 已經沒在播放
         if (!IsAiActuallySpeaking())
         {
             ResetBargeInCandidate();
@@ -369,11 +387,7 @@ public class VoiceSystemManager : MonoBehaviour
             bargeInCandidateStartTime;
 
 
-        // =====================================================
-        // 條件 1：
-        // 至少持續 350 ms
-        // =====================================================
-
+        // 至少持續 350ms
         if (
             duration <
             BargeInConfirmSeconds
@@ -383,11 +397,7 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        // =====================================================
-        // 條件 2：
         // 至少 2 個字
-        // =====================================================
-
         if (
             lastBargeInPartial.Length <
             BargeInMinCharacters
@@ -397,20 +407,9 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        // =====================================================
-        // 條件 3：
-        // Partial 至少有繼續更新一次
-        //
-        // 避免單一殘留 partial：
-        //
-        // 「今天」
-        //
-        // 放著 350ms 就誤觸。
-        // =====================================================
-
+        // Partial 至少更新過一次
         if (
-            bargeInPartialGrowthCount <
-            1
+            bargeInPartialGrowthCount < 1
         )
         {
             return;
@@ -418,7 +417,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
         // =====================================================
-        // 通過全部條件
+        // Barge-in 成立
         // =====================================================
 
         bargeInTriggered = true;
@@ -436,7 +435,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
     // =========================================================
-    // AI 是否「真的正在播放」
+    // AI 是否真的正在播放
     // =========================================================
 
     private bool IsAiActuallySpeaking()
@@ -447,18 +446,6 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        // =====================================================
-        // 這裡不使用 conversationBusy。
-        //
-        // conversationBusy 包含：
-        //
-        // GPT 思考
-        // TTS WebSocket 連線
-        // TTS 產生
-        //
-        // 但那些都不代表 AI 已經從喇叭發出聲音。
-        // =====================================================
-
         return
             audioSource.isPlaying &&
             ttsService != null &&
@@ -467,10 +454,11 @@ public class VoiceSystemManager : MonoBehaviour
 
 
     // =========================================================
-    // 中斷目前 AI
+    // 中斷 AI
     // =========================================================
 
-    private async Task InterruptCurrentResponseAsync()
+    private async Task
+        InterruptCurrentResponseAsync()
     {
         try
         {
@@ -479,25 +467,16 @@ public class VoiceSystemManager : MonoBehaviour
             );
 
 
-            // =================================================
-            // 1. Cancel GPT
-            // =================================================
-
+            // Cancel GPT
             conversationCancellation?
                 .Cancel();
 
 
-            // =================================================
-            // 2. 清除尚未送出去的 GPT 文字
-            // =================================================
-
+            // 清除尚未送出去的文字
             ttsTextBuffer.Clear();
 
 
-            // =================================================
-            // 3. Stop TTS
-            // =================================================
-
+            // Stop TTS
             if (ttsService != null)
             {
                 await ttsService
@@ -505,15 +484,9 @@ public class VoiceSystemManager : MonoBehaviour
             }
 
 
-            // =================================================
-            // ★ 非常重要
-            //
-            // 不要：
-            //
-            // sttService.SkipCurrentMicrophoneData();
-            //
-            // 因為現在麥克風裡面正是玩家插話。
-            // =================================================
+            // 注意：
+            // 不要 SkipCurrentMicrophoneData()
+            // 因為現在正在收玩家的插話。
 
 
             ResetBargeInCandidate();
@@ -548,12 +521,32 @@ public class VoiceSystemManager : MonoBehaviour
         {
             return;
         }
+        // =====================================================
+        // AI 剛說完產生的殘留 STT
+        // 不要拿去問 GPT
+        // =====================================================
+
+        if (
+            Time.realtimeSinceStartup <
+            ignorePlayerSpeechUntil
+        )
+        {
+            Debug.Log(
+                $"🔇 忽略 AI 殘留 STT：{text}"
+            );
+
+            return;
+        }
+
+        kiwiAnimation?.
+            OnPlayerSpeechFinal(
+                text
+            );
 
 
         // =====================================================
-        // 上一輪正在取消
-        //
-        // 等它完全離開。
+        // 如果上一輪正在取消
+        // 等上一輪完全離開
         // =====================================================
 
         if (conversationBusy)
@@ -583,7 +576,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
         // =====================================================
-        // 新的一輪 CancellationToken
+        // 新 CancellationToken
         // =====================================================
 
         conversationCancellation?
@@ -608,7 +601,8 @@ public class VoiceSystemManager : MonoBehaviour
                 .StartSessionAsync();
 
 
-            token.ThrowIfCancellationRequested();
+            token
+                .ThrowIfCancellationRequested();
 
 
             ttsTextBuffer.Clear();
@@ -646,7 +640,8 @@ public class VoiceSystemManager : MonoBehaviour
                     );
 
 
-            token.ThrowIfCancellationRequested();
+            token
+                .ThrowIfCancellationRequested();
 
 
             // =================================================
@@ -658,7 +653,8 @@ public class VoiceSystemManager : MonoBehaviour
             );
 
 
-            token.ThrowIfCancellationRequested();
+            token
+                .ThrowIfCancellationRequested();
 
 
             // =================================================
@@ -669,7 +665,8 @@ public class VoiceSystemManager : MonoBehaviour
                 .FlushAsync();
 
 
-            token.ThrowIfCancellationRequested();
+            token
+                .ThrowIfCancellationRequested();
 
 
             await ttsService
@@ -682,20 +679,41 @@ public class VoiceSystemManager : MonoBehaviour
 
 
             // =================================================
-            // 等聲音真正播放完成
+            // 等 TTS 真正播完
             // =================================================
 
             await ttsService
-                .WaitUntilFinishedAsync();
-
+            .WaitUntilFinishedAsync();
 
             token.ThrowIfCancellationRequested();
+
+
+            // =================================================
+            // AI 聲音已經真正播放完
+            // =================================================
+
+            // 丟掉 AI 說話期間累積的麥克風資料
+            sttService?.
+                SkipCurrentMicrophoneData();
+
+
+            // 接下來 0.5 秒，不讓殘留的 STT
+            // 被當成新的玩家發言
+            ignorePlayerSpeechUntil =
+                Time.realtimeSinceStartup +
+                PostTtsIgnoreSeconds;
+
+
+            // 現在才結束角色 Talk
+            kiwiAnimation?.
+                EndConversation();
 
 
             Debug.Log(
                 "✅ 本輪對話完成"
             );
         }
+
         catch (OperationCanceledException)
         {
             ttsTextBuffer.Clear();
@@ -705,6 +723,7 @@ public class VoiceSystemManager : MonoBehaviour
                 "🟡 上一輪 AI 回答已取消"
             );
         }
+
         catch (Exception ex)
         {
             Debug.LogError(
@@ -719,6 +738,7 @@ public class VoiceSystemManager : MonoBehaviour
                     .StopSessionAsync();
             }
         }
+
         finally
         {
             conversationBusy = false;
@@ -811,6 +831,7 @@ public class VoiceSystemManager : MonoBehaviour
                     text
                 );
         }
+
         catch (Exception ex)
         {
             if (
@@ -824,6 +845,7 @@ public class VoiceSystemManager : MonoBehaviour
                 );
             }
         }
+
         finally
         {
             ttsTextSendLock
@@ -879,6 +901,7 @@ public class VoiceSystemManager : MonoBehaviour
                     );
             }
         }
+
         finally
         {
             ttsTextSendLock
@@ -888,7 +911,7 @@ public class VoiceSystemManager : MonoBehaviour
 
 
     // =========================================================
-    // Reset Barge-in Candidate
+    // Reset Barge-in
     // =========================================================
 
     private void ResetBargeInCandidate()
@@ -952,6 +975,7 @@ public class VoiceSystemManager : MonoBehaviour
         {
             sttService.PartialTranscriptReceived -=
                 HandlePartialTranscript;
+
 
             sttService.FinalTranscriptReceived -=
                 HandleFinalTranscriptAsync;
