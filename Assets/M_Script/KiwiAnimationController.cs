@@ -3,12 +3,24 @@ using UnityEngine;
 public class KiwiAnimationController : MonoBehaviour
 {
     // =========================================================
+    // Animation States
+    // =========================================================
+
+    public enum KiwiState
+    {
+        Idle = 0,
+        Talk = 1,
+        Think = 2,
+        Fly = 3
+    }
+
+
+    // =========================================================
     // References
     // =========================================================
 
     [Header("References")]
     public Animator animator;
-
     public PlayerMovement playerMovement;
 
 
@@ -18,19 +30,51 @@ public class KiwiAnimationController : MonoBehaviour
 
     [Header("Speech Settings")]
 
-    // 至少辨識到幾個字
-    // 才認為玩家真的開始一輪對話
+    // 至少辨識到幾個字，
+    // 才認為玩家真的開始講話
     public int minimumSpeechCharacters = 3;
 
 
     // =========================================================
-    // Private
+    // Private Variables
     // =========================================================
 
-    private bool isTalking = false;
+    // Animator 現在實際播放的動畫
+    private KiwiState currentAnimationState = KiwiState.Idle;
 
-    // 一輪對話是否正在進行
-    private bool conversationActive = false;
+
+    // 如果現在沒有 Fly，
+    // Kiwi 原本應該播放的動畫
+    //
+    // 例如：
+    // AI正在講話 → Talk
+    // 玩家講話 / 等待AI → Think
+    private KiwiState conversationState = KiwiState.Idle;
+
+
+    // 是否已經開始過第一次對話
+    //
+    // false：
+    // 遊戲剛開始 → Idle
+    //
+    // true：
+    // 已經開始對話 → 不再回 Idle
+    private bool conversationHasStarted = false;
+
+
+    // =========================================================
+    // Start
+    // =========================================================
+
+    private void Start()
+    {
+        // 遊戲剛開始
+        conversationHasStarted = false;
+
+        conversationState = KiwiState.Idle;
+
+        ForceAnimationState(KiwiState.Idle);
+    }
 
 
     // =========================================================
@@ -40,22 +84,11 @@ public class KiwiAnimationController : MonoBehaviour
     private void Update()
     {
         // =====================================================
-        // 對話進行中：
-        // Talk 優先，不因為 Player 移動而切掉
-        // =====================================================
-
-        if (conversationActive)
-        {
-            return;
-        }
-
-
-        // =====================================================
-        // 沒有對話時：
-        // 玩家移動目前先維持 Idle
+        // Fly 最高優先權
         //
-        // 之後有 Fly 動畫，
-        // 再把這裡改成 Fly。
+        // 只要玩家正在移動，
+        // 不管目前是 Talk / Think / Idle，
+        // Kiwi 都只能播放 Fly。
         // =====================================================
 
         if (
@@ -63,160 +96,240 @@ public class KiwiAnimationController : MonoBehaviour
             playerMovement.IsMoving
         )
         {
-            ForceIdle();
+            SetAnimationState(KiwiState.Fly);
+
+            return;
         }
+
+
+        // =====================================================
+        // 玩家沒有移動
+        //
+        // 回到 Kiwi 原本應該播放的動畫
+        // =====================================================
+
+        SetAnimationState(conversationState);
     }
 
 
     // =========================================================
-    // 玩家說話 Partial
+    // 玩家開始說話
     // =========================================================
 
     public void OnPlayerSpeechPartial(string text)
     {
+        // 沒有文字
         if (string.IsNullOrWhiteSpace(text))
         {
             return;
         }
 
 
-        string cleanText =
-            text.Trim();
+        string cleanText = text.Trim();
 
 
         // =====================================================
-        // 太短的不算
+        // 太短的辨識結果不算正式開始對話
         //
-        // 嗯、啊、喔...
+        // 避免「嗯」、「啊」或雜音誤觸發
         // =====================================================
 
-        if (
-            cleanText.Length <
-            minimumSpeechCharacters
-        )
+        if (cleanText.Length < minimumSpeechCharacters)
         {
             return;
         }
 
 
         // =====================================================
-        // 確認玩家開始一輪有效對話
+        // 第一次有效對話開始
         // =====================================================
 
-        StartConversation();
+        conversationHasStarted = true;
+
+
+        // =====================================================
+        // 玩家正在說話
+        //
+        // Kiwi 是在「聽玩家講話」，
+        // 所以播放 Think，
+        // 不是 Talk。
+        // =====================================================
+
+        conversationState = KiwiState.Think;
     }
 
 
     // =========================================================
-    // 玩家 Final
+    // 玩家說完話
     // =========================================================
 
     public void OnPlayerSpeechFinal(string text)
     {
+        conversationHasStarted = true;
+
+
         // =====================================================
-        // ★ 這裡現在不要回 Idle
+        // 玩家講完後，
+        // GPT / TTS 還在準備回答。
         //
-        // 玩家講完之後，
-        // 還要等 AI 回答播放完成。
+        // 所以 Kiwi 繼續 Think。
         // =====================================================
 
-        if (!conversationActive)
-        {
-            StartConversation();
-        }
+        conversationState = KiwiState.Think;
     }
 
 
     // =========================================================
-    // 開始一輪對話
+    // AI 真正開始播放語音
     // =========================================================
 
-    public void StartConversation()
+    public void OnAiSpeechStarted()
     {
-        conversationActive = true;
+        conversationHasStarted = true;
 
-        StartTalking();
+
+        // =====================================================
+        // 只有 Kiwi 自己真的開始講話，
+        // 才播放 Talk。
+        // =====================================================
+
+        conversationState = KiwiState.Talk;
+
+        Debug.Log("🐦 AI 開始發聲 → Talk");
     }
 
 
     // =========================================================
-    // AI 回答真正播放完成
+    // AI 語音完全播放完成
     // =========================================================
 
-    public void EndConversation()
+    public void OnAiSpeechFinished()
     {
-        conversationActive = false;
+        conversationHasStarted = true;
 
-        StopTalking();
 
-        Debug.Log(
-            "🐦 對話完成 → Kiwi Idle"
-        );
+        // =====================================================
+        // AI 講完之後，
+        // Kiwi 等待玩家下一句。
+        //
+        // 不再回 Idle，
+        // 而是進入 Think。
+        // =====================================================
+
+        conversationState = KiwiState.Think;
+
+        Debug.Log("🐦 AI 語音結束 → Think");
     }
 
 
     // =========================================================
-    // Talk
+    // 玩家在 AI 說話時插話
     // =========================================================
 
-    private void StartTalking()
+    public void OnPlayerBargeIn()
     {
-        if (isTalking)
+        conversationHasStarted = true;
+
+
+        // =====================================================
+        // 玩家開始插話後，
+        // Kiwi 停止自己說話，
+        // 改成聽玩家說話。
+        //
+        // 所以是 Think。
+        // =====================================================
+
+        conversationState = KiwiState.Think;
+
+        Debug.Log("🐦 玩家插話 → Think");
+    }
+
+
+    // =========================================================
+    // Reset Character
+    //
+    // 如果未來重新開始場景，
+    // 可以呼叫這個方法。
+    //
+    // 會真正回到最初的 Idle。
+    // =========================================================
+
+    public void ResetCharacter()
+    {
+        conversationHasStarted = false;
+
+        conversationState = KiwiState.Idle;
+
+        ForceAnimationState(KiwiState.Idle);
+    }
+
+
+    // =========================================================
+    // Set Animation State
+    //
+    // 真正控制 Animator
+    // =========================================================
+
+    private void SetAnimationState(KiwiState newState)
+    {
+        // =====================================================
+        // 如果已經在播放這個動畫，
+        // 就不要每一幀重複設定。
+        // =====================================================
+
+        if (currentAnimationState == newState)
         {
             return;
         }
 
 
-        isTalking = true;
+        currentAnimationState = newState;
 
+
+        // =====================================================
+        // 傳送 State 給 Animator
+        // =====================================================
 
         if (animator != null)
         {
-            animator.SetBool(
-                "IsTalking",
-                true
+            animator.SetInteger(
+                "State",
+                (int)newState
             );
         }
 
 
         Debug.Log(
-            "🐦 Kiwi → Talk"
+            $"🐦 Kiwi Animation → {newState}"
         );
     }
 
 
     // =========================================================
-    // Idle
+    // Force Animation State
+    //
+    // Start / Reset 使用。
+    //
+    // 不管目前是不是同一個 State，
+    // 都強制傳給 Animator。
     // =========================================================
 
-    private void StopTalking()
+    private void ForceAnimationState(KiwiState newState)
     {
-        isTalking = false;
+        currentAnimationState = newState;
 
 
         if (animator != null)
         {
-            animator.SetBool(
-                "IsTalking",
-                false
+            animator.SetInteger(
+                "State",
+                (int)newState
             );
         }
 
 
         Debug.Log(
-            "🐦 Kiwi → Idle"
+            $"🐦 Kiwi Animation → {newState}"
         );
-    }
-
-
-    // =========================================================
-    // 強制 Idle
-    // =========================================================
-
-    public void ForceIdle()
-    {
-        conversationActive = false;
-
-        StopTalking();
     }
 }

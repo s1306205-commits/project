@@ -61,6 +61,8 @@ public class VoiceSystemManager : MonoBehaviour
 
     private bool bargeInTriggered = false;
 
+    private bool aiTalkAnimationStarted = false;
+
 
     // =========================================================
     // Barge-in Candidate
@@ -202,12 +204,29 @@ public class VoiceSystemManager : MonoBehaviour
 
     private void Update()
     {
-        // 麥克風持續送給 STT
-        sttService?.UpdateMicrophone();
+        sttService?.
+            UpdateMicrophone();
 
 
-        // 每幀檢查 Barge-in
         CheckBargeInCandidate();
+
+
+        // =====================================================
+        // AI TTS 真正開始播放
+        // Think → Talk
+        // =====================================================
+
+        if (
+            IsAiActuallySpeaking() &&
+            !aiTalkAnimationStarted
+        )
+        {
+            aiTalkAnimationStarted = true;
+
+
+            kiwiAnimation?.
+                OnAiSpeechStarted();
+        }
     }
 
 
@@ -422,6 +441,8 @@ public class VoiceSystemManager : MonoBehaviour
 
         bargeInTriggered = true;
 
+        kiwiAnimation?.
+           OnPlayerBargeIn();
 
         Debug.Log(
             $"🛑 Barge-in 確認：" +
@@ -683,30 +704,33 @@ public class VoiceSystemManager : MonoBehaviour
             // =================================================
 
             await ttsService
-            .WaitUntilFinishedAsync();
+                .WaitUntilFinishedAsync();
+
 
             token.ThrowIfCancellationRequested();
 
 
             // =================================================
-            // AI 聲音已經真正播放完
+            // AI 聲音真正播放完成
             // =================================================
 
-            // 丟掉 AI 說話期間累積的麥克風資料
+            aiTalkAnimationStarted = false;
+
+
+            // 清除 AI 說話期間累積的麥克風資料
             sttService?.
                 SkipCurrentMicrophoneData();
 
 
-            // 接下來 0.5 秒，不讓殘留的 STT
-            // 被當成新的玩家發言
+            // 防止 AI 剛說完的殘留 STT
             ignorePlayerSpeechUntil =
                 Time.realtimeSinceStartup +
                 PostTtsIgnoreSeconds;
 
 
-            // 現在才結束角色 Talk
+            // 動畫回 Idle / Fly
             kiwiAnimation?.
-                EndConversation();
+                OnAiSpeechFinished();
 
 
             Debug.Log(
