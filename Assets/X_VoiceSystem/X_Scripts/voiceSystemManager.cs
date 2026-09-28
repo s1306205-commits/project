@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 
+
 public class VoiceSystemManager : MonoBehaviour
 {
     // =========================================================
@@ -27,6 +28,24 @@ public class VoiceSystemManager : MonoBehaviour
     [Header("Character Animation")]
 
     public KiwiAnimationController kiwiAnimation;
+
+
+    // =========================================================
+    // Subtitle
+    // =========================================================
+
+    [Header("Subtitle")]
+
+    public SubtitleController subtitleController;
+
+
+    // GPT 完整字幕
+    private readonly StringBuilder subtitleBuffer =
+        new StringBuilder();
+
+
+    // AI 說完之後字幕繼續停留多久
+    private const float SubtitleRemainSeconds = 1.2f;
 
 
     // =========================================================
@@ -87,6 +106,7 @@ public class VoiceSystemManager : MonoBehaviour
     private readonly SemaphoreSlim ttsTextSendLock =
         new SemaphoreSlim(1, 1);
 
+
     // =========================================================
     // AI 說完後的 STT 防誤觸
     // =========================================================
@@ -95,6 +115,8 @@ public class VoiceSystemManager : MonoBehaviour
     private const float PostTtsIgnoreSeconds = 0.5f;
 
     private float ignorePlayerSpeechUntil = 0f;
+
+
     // =========================================================
     // Start
     // =========================================================
@@ -174,6 +196,16 @@ public class VoiceSystemManager : MonoBehaviour
 
         sttService.PartialTranscriptReceived +=
             HandlePartialTranscript;
+
+
+        // =====================================================
+        // 字幕初始隱藏
+        // =====================================================
+
+        subtitleBuffer.Clear();
+
+        subtitleController?.
+            HideSubtitle();
 
 
         // =====================================================
@@ -258,7 +290,7 @@ public class VoiceSystemManager : MonoBehaviour
         // 1. AI 沒有正在說話
         // 2. AI 說完後的冷卻期已經結束
         //
-        // 才允許 Partial 開啟新的 Talk。
+        // 才允許 Partial 開啟新的玩家對話。
         // =====================================================
 
         bool canStartPlayerConversation =
@@ -275,6 +307,7 @@ public class VoiceSystemManager : MonoBehaviour
                     partial
                 );
         }
+
 
         // =====================================================
         // 以下保持原本 Barge-in 2.0
@@ -441,8 +474,10 @@ public class VoiceSystemManager : MonoBehaviour
 
         bargeInTriggered = true;
 
+
         kiwiAnimation?.
-           OnPlayerBargeIn();
+            OnPlayerBargeIn();
+
 
         Debug.Log(
             $"🛑 Barge-in 確認：" +
@@ -488,16 +523,36 @@ public class VoiceSystemManager : MonoBehaviour
             );
 
 
+            // =================================================
             // Cancel GPT
+            // =================================================
+
             conversationCancellation?
                 .Cancel();
 
 
-            // 清除尚未送出去的文字
+            // =================================================
+            // 清除尚未送出去的 TTS 文字
+            // =================================================
+
             ttsTextBuffer.Clear();
 
 
+            // =================================================
+            // 清除被打斷的 AI 字幕
+            // =================================================
+
+            subtitleBuffer.Clear();
+
+
+            subtitleController?.
+                HideSubtitle();
+
+
+            // =================================================
             // Stop TTS
+            // =================================================
+
             if (ttsService != null)
             {
                 await ttsService
@@ -505,8 +560,7 @@ public class VoiceSystemManager : MonoBehaviour
             }
 
 
-            // 注意：
-            // 不要 SkipCurrentMicrophoneData()
+            // Barge-in 時不要 SkipCurrentMicrophoneData()
             // 因為現在正在收玩家的插話。
 
 
@@ -542,6 +596,8 @@ public class VoiceSystemManager : MonoBehaviour
         {
             return;
         }
+
+
         // =====================================================
         // AI 剛說完產生的殘留 STT
         // 不要拿去問 GPT
@@ -558,6 +614,7 @@ public class VoiceSystemManager : MonoBehaviour
 
             return;
         }
+
 
         kiwiAnimation?.
             OnPlayerSpeechFinal(
@@ -626,7 +683,22 @@ public class VoiceSystemManager : MonoBehaviour
                 .ThrowIfCancellationRequested();
 
 
+            // =================================================
+            // 清除 TTS Buffer
+            // =================================================
+
             ttsTextBuffer.Clear();
+
+
+            // =================================================
+            // 準備新的 AI 字幕
+            // =================================================
+
+            subtitleBuffer.Clear();
+
+
+            subtitleController?.
+                HideSubtitle();
 
 
             Debug.Log(
@@ -707,7 +779,8 @@ public class VoiceSystemManager : MonoBehaviour
                 .WaitUntilFinishedAsync();
 
 
-            token.ThrowIfCancellationRequested();
+            token
+                .ThrowIfCancellationRequested();
 
 
             // =================================================
@@ -717,20 +790,57 @@ public class VoiceSystemManager : MonoBehaviour
             aiTalkAnimationStarted = false;
 
 
+            // =================================================
             // 清除 AI 說話期間累積的麥克風資料
+            // =================================================
+
             sttService?.
                 SkipCurrentMicrophoneData();
 
 
+            // =================================================
             // 防止 AI 剛說完的殘留 STT
+            // =================================================
+
             ignorePlayerSpeechUntil =
                 Time.realtimeSinceStartup +
                 PostTtsIgnoreSeconds;
 
 
-            // 動畫回 Idle / Fly
+            // =================================================
+            // AI 說完 → Kiwi Think
+            // =================================================
+
             kiwiAnimation?.
                 OnAiSpeechFinished();
+
+
+            // =================================================
+            // 字幕繼續停留 1.2 秒
+            // =================================================
+
+            await Task.Delay(
+                Mathf.RoundToInt(
+                    SubtitleRemainSeconds *
+                    1000f
+                ),
+                token
+            );
+
+
+            token
+                .ThrowIfCancellationRequested();
+
+
+            // =================================================
+            // 隱藏字幕
+            // =================================================
+
+            subtitleController?.
+                HideSubtitle();
+
+
+            subtitleBuffer.Clear();
 
 
             Debug.Log(
@@ -740,7 +850,20 @@ public class VoiceSystemManager : MonoBehaviour
 
         catch (OperationCanceledException)
         {
+            // =================================================
+            // 上一輪被 Barge-in 中斷
+            // =================================================
+
             ttsTextBuffer.Clear();
+
+            subtitleBuffer.Clear();
+
+
+            subtitleController?.
+                HideSubtitle();
+
+
+            aiTalkAnimationStarted = false;
 
 
             Debug.Log(
@@ -754,6 +877,17 @@ public class VoiceSystemManager : MonoBehaviour
                 $"❌ AI Streaming 對話錯誤：" +
                 $"{ex.Message}"
             );
+
+
+            // 發生錯誤時不要把舊字幕留在畫面
+            subtitleBuffer.Clear();
+
+
+            subtitleController?.
+                HideSubtitle();
+
+
+            aiTalkAnimationStarted = false;
 
 
             if (ttsService != null)
@@ -788,6 +922,28 @@ public class VoiceSystemManager : MonoBehaviour
             return;
         }
 
+
+        // =====================================================
+        // Subtitle
+        //
+        // GPT 每 Streaming 一小段文字，
+        // 就加入完整字幕。
+        // =====================================================
+
+        subtitleBuffer.Append(
+            delta
+        );
+
+
+        subtitleController?.
+            SetText(
+                subtitleBuffer.ToString()
+            );
+
+
+        // =====================================================
+        // TTS Buffer
+        // =====================================================
 
         ttsTextBuffer.Append(
             delta
