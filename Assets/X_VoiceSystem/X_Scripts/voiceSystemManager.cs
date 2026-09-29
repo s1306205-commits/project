@@ -43,6 +43,16 @@ public class VoiceSystemManager : MonoBehaviour
     private readonly StringBuilder subtitleBuffer =
         new StringBuilder();
 
+    // GPT Streaming 可能不在 Unity Main Thread。
+    // 所以先把最新字幕存起來，
+    // 再由 Update() 真正更新 Unity UI。
+    private readonly object subtitleLock =
+        new object();
+
+    private string pendingSubtitleText = "";
+
+    private bool subtitleUpdatePending = false;
+
 
     // AI 說完之後字幕繼續停留多久
     private const float SubtitleRemainSeconds = 1.2f;
@@ -236,17 +246,43 @@ public class VoiceSystemManager : MonoBehaviour
 
     private void Update()
     {
+        // =====================================================
+        // Subtitle Main Thread Update
+        // =====================================================
+
+        if (subtitleUpdatePending)
+        {
+            string textToShow;
+
+            lock (subtitleLock)
+            {
+                textToShow =
+                    pendingSubtitleText;
+
+                subtitleUpdatePending =
+                    false;
+            }
+
+            if (
+                !string.IsNullOrWhiteSpace(
+                    textToShow
+                )
+            )
+            {
+                subtitleController?.
+                    SetText(
+                        textToShow
+                    );
+            }
+        }
+
+
         sttService?.
             UpdateMicrophone();
 
 
         CheckBargeInCandidate();
 
-
-        // =====================================================
-        // AI TTS 真正開始播放
-        // Think → Talk
-        // =====================================================
 
         if (
             IsAiActuallySpeaking() &&
@@ -923,22 +959,20 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        // =====================================================
-        // Subtitle
-        //
-        // GPT 每 Streaming 一小段文字，
-        // 就加入完整字幕。
-        // =====================================================
-
-        subtitleBuffer.Append(
-            delta
-        );
-
-
-        subtitleController?.
-            SetText(
-                subtitleBuffer.ToString()
+        lock (subtitleLock)
+        {
+            subtitleBuffer.Append(
+                delta
             );
+
+
+            pendingSubtitleText =
+                subtitleBuffer.ToString();
+
+
+            subtitleUpdatePending =
+                true;
+        }
 
 
         // =====================================================

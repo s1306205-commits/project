@@ -3,78 +3,76 @@ using TMPro;
 
 public class SubtitleController : MonoBehaviour
 {
-    // =========================================================
-    // References
-    // =========================================================
-
     [Header("References")]
-
-    // 整個半透明字幕背板
     public GameObject subtitlePanel;
-
-    // TMP 字幕文字
     public TMP_Text subtitleText;
 
 
-    // =========================================================
-    // Start
-    // =========================================================
-
     private void Start()
     {
-        // 遊戲開始時不要顯示字幕
         HideSubtitle();
     }
 
 
-    // =========================================================
-    // 開始一段新的 AI 字幕
-    // =========================================================
-
-    public void StartSubtitle()
+    private void Update()
     {
-        if (subtitleText != null)
+        // 按 F8 強制測試字幕
+        if (Input.GetKeyDown(KeyCode.F8))
         {
-            subtitleText.text = "";
+            Debug.Log("🧪 F8 字幕測試");
+
+            SetText("這是一段 VR 字幕測試");
         }
 
-        if (subtitlePanel != null)
+
+        // 按 F9 關閉字幕
+        if (Input.GetKeyDown(KeyCode.F9))
         {
-            subtitlePanel.SetActive(true);
+            Debug.Log("🧪 F9 關閉字幕");
+
+            HideSubtitle();
         }
     }
 
-
-    // =========================================================
-    // 更新字幕
-    //
-    // 之後 GPT Streaming 每產生一些文字，
-    // 就會呼叫這個。
-    // =========================================================
 
     public void SetText(string text)
     {
-        if (subtitleText == null)
+        Debug.Log(
+            $"📝 Subtitle SetText：{text}"
+        );
+
+
+        if (subtitlePanel == null)
         {
+            Debug.LogError(
+                "❌ Subtitle Panel 沒有指定！"
+            );
+
             return;
         }
 
+
+        if (subtitleText == null)
+        {
+            Debug.LogError(
+                "❌ Subtitle Text 沒有指定！"
+            );
+
+            return;
+        }
+
+
         subtitleText.text = text;
 
-        // 有文字才顯示背板
-        if (
-            subtitlePanel != null &&
-            !string.IsNullOrWhiteSpace(text)
-        )
-        {
-            subtitlePanel.SetActive(true);
-        }
+        subtitlePanel.SetActive(true);
+
+
+        Debug.Log(
+            $"🟢 Subtitle Panel Active = " +
+            $"{subtitlePanel.activeSelf}"
+        );
     }
 
-
-    // =========================================================
-    // 隱藏字幕
-    // =========================================================
 
     public void HideSubtitle()
     {
@@ -83,9 +81,15 @@ public class SubtitleController : MonoBehaviour
             subtitleText.text = "";
         }
 
+
         if (subtitlePanel != null)
         {
             subtitlePanel.SetActive(false);
         }
+
+
+        Debug.Log(
+            "⚫ Subtitle Hide"
+        );
     }
 }
