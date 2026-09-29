@@ -391,11 +391,11 @@ MonoBehaviour:
   m_Name: XrPerformanceSettingsFeature WebGL
   m_EditorClassIdentifier: 
   m_enabled: 0
-  nameUi: 
-  version: 
-  featureIdInternal: 
-  openxrExtensionStrings: 
-  company: 
+  nameUi: XR Performance Settings
+  version: 1.0.0
+  featureIdInternal: com.unity.openxr.feature.extension.performance_settings
+  openxrExtensionStrings: XR_EXT_performance_settings
+  company: Unity
   priority: 0
   required: 0
 --- !u!114 &-2150380208704040621
@@ -611,7 +611,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b5a1f07dc5afe854f9f12a4194aca3fb, type: 3}
   m_Name: WebGL
   m_EditorClassIdentifier: 
-  features: []
+  features:
+  - {fileID: -2317274642348037657}
   m_renderMode: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
@@ -870,22 +871,22 @@ MonoBehaviour:
   m_Name: Android
   m_EditorClassIdentifier: 
   features:
-  - {fileID: -2031815727535416530}
-  - {fileID: 3583516381941353465}
-  - {fileID: -9173722171059172473}
-  - {fileID: -7566206956586351702}
-  - {fileID: 5019810987073287178}
-  - {fileID: 5005546808135827076}
-  - {fileID: 1050403217573881717}
-  - {fileID: -7067909366598553973}
-  - {fileID: -2323129896265097981}
-  - {fileID: 7806293664945662511}
-  - {fileID: -9089873757002461237}
-  - {fileID: -4351690567018868236}
-  - {fileID: -847887185404099519}
-  - {fileID: 6843368406422200328}
-  - {fileID: 1510324359806982954}
   - {fileID: 7705900323517857173}
+  - {fileID: 5019810987073287178}
+  - {fileID: 6843368406422200328}
+  - {fileID: -7566206956586351702}
+  - {fileID: -7067909366598553973}
+  - {fileID: 1050403217573881717}
+  - {fileID: -9173722171059172473}
+  - {fileID: -9089873757002461237}
+  - {fileID: 7806293664945662511}
+  - {fileID: 5005546808135827076}
+  - {fileID: 1510324359806982954}
+  - {fileID: 3583516381941353465}
+  - {fileID: -2323129896265097981}
+  - {fileID: -4351690567018868236}
+  - {fileID: -2031815727535416530}
+  - {fileID: -847887185404099519}
   m_renderMode: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
