@@ -410,8 +410,31 @@ MonoBehaviour:
   company: Unity
   priority: 0
   required: 0
+<<<<<<< Updated upstream
   targetQuest: 1
   targetQuest2: 1
+=======
+--- !u!114 &-2317274642348037657
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b213d3e3c7f3109449eb46a4c8ee42f0, type: 3}
+  m_Name: XrPerformanceSettingsFeature WebGL
+  m_EditorClassIdentifier: 
+  m_enabled: 0
+  nameUi: XR Performance Settings
+  version: 1.0.0
+  featureIdInternal: com.unity.openxr.feature.extension.performance_settings
+  openxrExtensionStrings: XR_EXT_performance_settings
+  company: Unity
+  priority: 0
+  required: 0
+>>>>>>> Stashed changes
 --- !u!114 &-2150380208704040621
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -708,6 +731,7 @@ MonoBehaviour:
   m_Name: Android
   m_EditorClassIdentifier: 
   features:
+<<<<<<< Updated upstream
   - {fileID: -2863947430918256184}
   - {fileID: -7644670136153964188}
   - {fileID: -3986263872416701652}
@@ -724,6 +748,9 @@ MonoBehaviour:
   - {fileID: -8649173819397025566}
   - {fileID: -5071669302714857878}
   - {fileID: 1818758346108305755}
+=======
+  - {fileID: -2317274642348037657}
+>>>>>>> Stashed changes
   m_renderMode: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
@@ -895,6 +922,46 @@ MonoBehaviour:
   company: Unity
   priority: 0
   required: 0
+<<<<<<< Updated upstream
+=======
+--- !u!114 &9145392239348046597
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5a1f07dc5afe854f9f12a4194aca3fb, type: 3}
+  m_Name: Android
+  m_EditorClassIdentifier: 
+  features:
+  - {fileID: 7705900323517857173}
+  - {fileID: 5019810987073287178}
+  - {fileID: 6843368406422200328}
+  - {fileID: -7566206956586351702}
+  - {fileID: -7067909366598553973}
+  - {fileID: 1050403217573881717}
+  - {fileID: -9173722171059172473}
+  - {fileID: -9089873757002461237}
+  - {fileID: 7806293664945662511}
+  - {fileID: 5005546808135827076}
+  - {fileID: 1510324359806982954}
+  - {fileID: 3583516381941353465}
+  - {fileID: -2323129896265097981}
+  - {fileID: -4351690567018868236}
+  - {fileID: -2031815727535416530}
+  - {fileID: -847887185404099519}
+  m_renderMode: 1
+  m_autoColorSubmissionMode: 1
+  m_colorSubmissionModes:
+    m_List: 00000000
+  m_depthSubmissionMode: 0
+  m_spacewarpMotionVectorTextureFormat: 0
+  m_optimizeBufferDiscards: 0
+  m_symmetricProjection: 0
+>>>>>>> Stashed changes
 --- !u!114 &9205586716087842311
 MonoBehaviour:
   m_ObjectHideFlags: 0
