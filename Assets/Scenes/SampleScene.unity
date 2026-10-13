@@ -10126,10 +10126,10 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "\u4F60\u597D\uFF0C\u6211\u662F\u4F60\u7684\u597D\u5925\u4F34\uFF0C\u4ECA\u5929\u60F3\u804A\u4E9B\u4EC0\u9EBC?"
+  m_text: "\u4F60\u597D \u6211\u662F\u4F60\u7684\u5925\u4F34!"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 76e5a2200efe2ee4caff9ca10881626c, type: 2}
-  m_sharedMaterial: {fileID: -2988518083644684165, guid: 76e5a2200efe2ee4caff9ca10881626c, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: b4fb0d3a93402b74fb8c4b781f948db8, type: 2}
+  m_sharedMaterial: {fileID: -1923299686800802231, guid: b4fb0d3a93402b74fb8c4b781f948db8, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -10153,8 +10153,8 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 45
-  m_fontSizeBase: 45
+  m_fontSize: 50
+  m_fontSizeBase: 50
   m_fontWeight: 400
   m_enableAutoSizing: 0
   m_fontSizeMin: 18
