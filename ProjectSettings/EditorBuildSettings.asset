@@ -9,8 +9,8 @@ EditorBuildSettings:
     path: Assets/Scenes/ForestHub.unity
     guid: 9fc0d4010bbf28b4594072e72b8655ab
   - enabled: 1
-    path: Assets/Scenes/TestWorld.unity
-    guid: 3351c785df260c545b83a2b19653f6c4
+    path: Assets/Scenes/ClassroomHub.unity
+    guid: d93e33c729c10874380bb7046db1683b
   m_configObjects:
     com.unity.xr.management.loader_settings: {fileID: 11400000, guid: c353ef4f9ed03954399d4e7304b8372b, type: 2}
     com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 2cf45361179117d4c92a1b117bfaf77a, type: 2}

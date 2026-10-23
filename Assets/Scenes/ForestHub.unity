@@ -12137,7 +12137,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1e57efd2055134b49a10e941639ef2ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetSceneName: TestWorld
+  targetSceneName: ClassroomHub
   confirmPanel: {fileID: 649078640}
   playerTag: Player
 --- !u!1001 &2122059729
