@@ -296,9 +296,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7c957c55ba67c4247a2b19ba063d2da1, type: 3}
       insertIndex: -1
       addedObject: {fileID: 29172744}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7c957c55ba67c4247a2b19ba063d2da1, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 29172745}
   m_SourcePrefab: {fileID: 100100000, guid: 7c957c55ba67c4247a2b19ba063d2da1, type: 3}
 --- !u!4 &29172742 stripped
 Transform:
@@ -332,21 +329,6 @@ MeshCollider:
   m_Convex: 0
   m_CookingOptions: 30
   m_Mesh: {fileID: 6862048860202120499, guid: 7c957c55ba67c4247a2b19ba063d2da1, type: 3}
---- !u!114 &29172745
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 29172743}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1e57efd2055134b49a10e941639ef2ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  targetSceneName: TestWorld
-  confirmPanel: {fileID: 649078640}
-  playerTag: Player
 --- !u!1 &46062620
 GameObject:
   m_ObjectHideFlags: 0
@@ -3761,15 +3743,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 507225005}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 39.01, y: 8.56, z: 36.87}
+  m_LocalRotation: {x: 0, y: 0.67559016, z: 0, w: 0.7372774}
+  m_LocalPosition: {x: 70, y: 11, z: 80}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 386403771}
   - {fileID: 1253395290}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 85, z: 0}
 --- !u!114 &507225009
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5686,16 +5668,16 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 11500000, guid: 1e57efd2055134b49a10e941639ef2ff, type: 3}
-        m_TargetAssemblyTypeName: UnityEngine.Object, UnityEngine
-        m_MethodName: set_name
-        m_Mode: 5
+      - m_Target: {fileID: 2119140557}
+        m_TargetAssemblyTypeName: ScenePortal, Assembly-CSharp
+        m_MethodName: ConfirmEnter
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
-          m_StringArgument: ConfirmEnter()
+          m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
 --- !u!114 &909277157
@@ -8162,16 +8144,16 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 11500000, guid: 1e57efd2055134b49a10e941639ef2ff, type: 3}
-        m_TargetAssemblyTypeName: UnityEngine.Object, UnityEngine
-        m_MethodName: set_name
-        m_Mode: 5
+      - m_Target: {fileID: 2119140557}
+        m_TargetAssemblyTypeName: ScenePortal, Assembly-CSharp
+        m_MethodName: Cancel
+        m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
           m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
-          m_StringArgument: Cancel()
+          m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
 --- !u!114 &1352202319
@@ -12072,6 +12054,7 @@ GameObject:
   - component: {fileID: 2119140554}
   - component: {fileID: 2119140555}
   - component: {fileID: 2119140556}
+  - component: {fileID: 2119140557}
   m_Layer: 0
   m_Name: PortalTrigger
   m_TagString: Untagged
@@ -12088,8 +12071,8 @@ Transform:
   m_GameObject: {fileID: 2119140553}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.05, y: 0.97, z: 0}
-  m_LocalScale: {x: 1.24, y: 0.25, z: 1}
+  m_LocalPosition: {x: 0.05, y: 2.4, z: 0}
+  m_LocalScale: {x: 1, y: 0.5, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 29172742}
@@ -12142,6 +12125,21 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 0
   m_CollisionDetection: 0
+--- !u!114 &2119140557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2119140553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e57efd2055134b49a10e941639ef2ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetSceneName: TestWorld
+  confirmPanel: {fileID: 649078640}
+  playerTag: Player
 --- !u!1001 &2122059729
 PrefabInstance:
   m_ObjectHideFlags: 0

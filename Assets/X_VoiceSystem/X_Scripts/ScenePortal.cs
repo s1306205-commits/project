@@ -88,6 +88,7 @@ public class ScenePortal : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
+        Debug.Log("碰到 Trigger：" + other.name + " / Tag = " + other.tag);
         if (!other.CompareTag(playerTag))
         {
             return;
