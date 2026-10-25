@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
+
 
 public class ElevenLabsRealtimeSttService
 {
@@ -27,13 +29,48 @@ public class ElevenLabsRealtimeSttService
 
     private int lastMicrophonePosition = 0;
 
-    // 暫存 Unity 每幀取得的 samples，
-    // 累積滿約 100 ms 才送 ElevenLabs。
+    // 暫存 Unity 每幀取得的 samples
     private readonly List<float> sampleBuffer =
         new List<float>();
 
-    private readonly SemaphoreSlim sendLock =
-        new SemaphoreSlim(1, 1);
+
+    // =========================================================
+    // 單一發送佇列
+    // =========================================================
+
+    private readonly ConcurrentQueue<OutgoingMessage>
+        outgoingQueue =
+            new ConcurrentQueue<OutgoingMessage>();
+
+    private readonly SemaphoreSlim outgoingSignal =
+        new SemaphoreSlim(0);
+
+    private Task sendLoopTask;
+
+
+    // =========================================================
+    // STT 卡住保險
+    // =========================================================
+
+    // Partial 文字 1.3 秒都沒有變化
+    // 就主動要求 ElevenLabs commit
+    private const double PartialStallCommitSeconds = 1.3;
+
+    // 避免「嗯」「啊」之類太短的文字被強制送出
+    private const int MinAutoCommitCharacters = 3;
+
+    // 最新 partial
+    private string latestPartialText = "";
+
+    // 最新 partial 真正發生變化的時間
+    private DateTime lastPartialChangedUtc =
+        DateTime.MinValue;
+
+    // 避免同一段一直重複排 commit
+    private bool autoCommitRequested = false;
+
+    // AI 說話時由 VoiceSystemManager 關閉
+    private bool autoCommitAllowed = true;
 
 
     public event Action<string> PartialTranscriptReceived;
@@ -43,7 +80,8 @@ public class ElevenLabsRealtimeSttService
     public event Action SpeechDetected;
 
 
-    public ElevenLabsRealtimeSttService(string apiKey)
+    public ElevenLabsRealtimeSttService(
+        string apiKey)
     {
         this.apiKey = apiKey;
     }
@@ -75,7 +113,7 @@ public class ElevenLabsRealtimeSttService
             "&language_code=zh" +
             "&audio_format=pcm_16000" +
             "&commit_strategy=vad" +
-            "&vad_silence_threshold_secs=1.8";
+            "&vad_silence_threshold_secs=1.2";
 
 
         Debug.Log(
@@ -94,6 +132,12 @@ public class ElevenLabsRealtimeSttService
         );
 
 
+        sendLoopTask =
+            SendLoopAsync(
+                cancellation.Token
+            );
+
+
         StartMicrophone();
 
 
@@ -109,7 +153,9 @@ public class ElevenLabsRealtimeSttService
 
     private void StartMicrophone()
     {
-        if (Microphone.devices.Length == 0)
+        if (
+            Microphone.devices.Length == 0
+        )
         {
             throw new Exception(
                 "Unity 找不到任何麥克風。"
@@ -135,7 +181,9 @@ public class ElevenLabsRealtimeSttService
             );
 
 
-        if (microphoneClip == null)
+        if (
+            microphoneClip == null
+        )
         {
             throw new Exception(
                 "Unity 麥克風啟動失敗。"
@@ -147,10 +195,6 @@ public class ElevenLabsRealtimeSttService
 
         sampleBuffer.Clear();
 
-
-        // =====================================================
-        // 這兩個數字很重要
-        // =====================================================
 
         Debug.Log(
             $"🎤 實際錄音格式：" +
@@ -179,6 +223,18 @@ public class ElevenLabsRealtimeSttService
 
 
     // =========================================================
+    // 是否允許自動 Commit
+    // =========================================================
+
+    public void SetAutoCommitAllowed(
+        bool allowed)
+    {
+        autoCommitAllowed =
+            allowed;
+    }
+
+
+    // =========================================================
     // VoiceSystemManager.Update() 每幀呼叫
     // =========================================================
 
@@ -188,7 +244,7 @@ public class ElevenLabsRealtimeSttService
             microphoneClip == null ||
             webSocket == null ||
             webSocket.State !=
-            WebSocketState.Open
+                WebSocketState.Open
         )
         {
             return;
@@ -201,7 +257,9 @@ public class ElevenLabsRealtimeSttService
             );
 
 
-        if (currentPosition < 0)
+        if (
+            currentPosition < 0
+        )
         {
             return;
         }
@@ -212,6 +270,8 @@ public class ElevenLabsRealtimeSttService
             lastMicrophonePosition
         )
         {
+            CheckAutoCommitTimeout();
+
             return;
         }
 
@@ -243,7 +303,9 @@ public class ElevenLabsRealtimeSttService
                 lastMicrophonePosition;
 
 
-            if (remainingFrames > 0)
+            if (
+                remainingFrames > 0
+            )
             {
                 ReadMicrophoneRange(
                     lastMicrophonePosition,
@@ -252,7 +314,9 @@ public class ElevenLabsRealtimeSttService
             }
 
 
-            if (currentPosition > 0)
+            if (
+                currentPosition > 0
+            )
             {
                 ReadMicrophoneRange(
                     0,
@@ -267,19 +331,78 @@ public class ElevenLabsRealtimeSttService
 
 
         // =====================================================
-        // 累積到約 100 ms 才送
+        // 累積到約 100 ms 才排入送出佇列
         // =====================================================
 
-        SendBufferedChunks();
+        QueueBufferedChunks();
+
+
+        // =====================================================
+        // 檢查 STT 是否卡住
+        // =====================================================
+
+        CheckAutoCommitTimeout();
+    }
+
+
+    // =========================================================
+    // STT 卡住保險
+    // =========================================================
+
+    private void CheckAutoCommitTimeout()
+    {
+        if (
+            !autoCommitAllowed ||
+            autoCommitRequested ||
+            string.IsNullOrWhiteSpace(
+                latestPartialText
+            ) ||
+            latestPartialText
+                .Trim()
+                .Length <
+                MinAutoCommitCharacters ||
+            lastPartialChangedUtc ==
+                DateTime.MinValue
+        )
+        {
+            return;
+        }
+
+
+        double stalledSeconds =
+            (
+                DateTime.UtcNow -
+                lastPartialChangedUtc
+            ).TotalSeconds;
+
+
+        if (
+            stalledSeconds <
+            PartialStallCommitSeconds
+        )
+        {
+            return;
+        }
+
+
+        autoCommitRequested =
+            true;
+
+
+        Debug.Log(
+            $"⏱️ STT partial 已 " +
+            $"{stalledSeconds:F1}s 沒有變化，" +
+            $"排入強制 commit：" +
+            $"{latestPartialText}"
+        );
+
+
+        QueueCommit();
     }
 
 
     // =========================================================
     // 從 Unity AudioClip 讀取一段資料
-    //
-    // 注意：
-    // AudioClip.samples 是「每個 channel 的 frame 數」
-    // GetData 陣列則包含所有 channel。
     // =========================================================
 
     private void ReadMicrophoneRange(
@@ -301,7 +424,8 @@ public class ElevenLabsRealtimeSttService
 
         float[] rawSamples =
             new float[
-                frameCount * channels
+                frameCount *
+                channels
             ];
 
 
@@ -323,10 +447,12 @@ public class ElevenLabsRealtimeSttService
 
 
         // =====================================================
-        // 如果本來就是 Mono
+        // Mono
         // =====================================================
 
-        if (channels == 1)
+        if (
+            channels == 1
+        )
         {
             sampleBuffer.AddRange(
                 rawSamples
@@ -337,9 +463,7 @@ public class ElevenLabsRealtimeSttService
 
 
         // =====================================================
-        // 如果裝置回傳 Stereo / 多聲道
-        //
-        // 混成 Mono。
+        // Stereo / 多聲道 → Mono
         // =====================================================
 
         for (
@@ -358,7 +482,8 @@ public class ElevenLabsRealtimeSttService
             )
             {
                 int index =
-                    frame * channels +
+                    frame *
+                    channels +
                     channel;
 
 
@@ -368,7 +493,8 @@ public class ElevenLabsRealtimeSttService
 
 
             float monoSample =
-                sum / channels;
+                sum /
+                channels;
 
 
             sampleBuffer.Add(
@@ -381,10 +507,10 @@ public class ElevenLabsRealtimeSttService
     // =========================================================
     // 每滿 1600 samples
     // → 約 100 ms
-    // → 送一次 ElevenLabs
+    // → 排進單一 Send Queue
     // =========================================================
 
-    private void SendBufferedChunks()
+    private void QueueBufferedChunks()
     {
         while (
             sampleBuffer.Count >=
@@ -410,18 +536,250 @@ public class ElevenLabsRealtimeSttService
                 );
 
 
-            // 不阻塞 Unity Update()
-            _ = SendAudioAsync(
-                pcmBytes
+            outgoingQueue.Enqueue(
+                new OutgoingMessage
+                {
+                    Type =
+                        OutgoingMessageType.Audio,
+
+                    AudioBytes =
+                        pcmBytes
+                }
             );
+
+
+            outgoingSignal.Release();
         }
     }
 
 
     // =========================================================
-    // Unity float
-    // →
-    // PCM16 little-endian
+    // 強制 Commit 也排進同一條 Queue
+    // =========================================================
+
+    private void QueueCommit()
+    {
+        outgoingQueue.Enqueue(
+            new OutgoingMessage
+            {
+                Type =
+                    OutgoingMessageType.Commit
+            }
+        );
+
+
+        outgoingSignal.Release();
+    }
+
+
+    // =========================================================
+    // 單一 Send Loop
+    // =========================================================
+
+    private async Task SendLoopAsync(
+        CancellationToken token)
+    {
+        try
+        {
+            while (
+                !token.IsCancellationRequested
+            )
+            {
+                await outgoingSignal.WaitAsync(
+                    token
+                );
+
+
+                while (
+                    outgoingQueue.TryDequeue(
+                        out OutgoingMessage message
+                    )
+                )
+                {
+                    if (
+                        token.IsCancellationRequested
+                    )
+                    {
+                        return;
+                    }
+
+
+                    if (
+                        webSocket == null ||
+                        webSocket.State !=
+                            WebSocketState.Open
+                    )
+                    {
+                        return;
+                    }
+
+
+                    if (
+                        message.Type ==
+                        OutgoingMessageType.Audio
+                    )
+                    {
+                        await SendAudioMessageAsync(
+                            message.AudioBytes,
+                            token
+                        );
+                    }
+
+                    else if (
+                        message.Type ==
+                        OutgoingMessageType.Commit
+                    )
+                    {
+                        await SendCommitMessageAsync(
+                            token
+                        );
+                    }
+                }
+            }
+        }
+
+        catch (
+            OperationCanceledException
+        )
+        {
+        }
+
+        catch (Exception ex)
+        {
+            if (
+                !token.IsCancellationRequested
+            )
+            {
+                Debug.LogError(
+                    $"❌ STT SendLoop 錯誤：" +
+                    $"{ex.Message}"
+                );
+            }
+        }
+    }
+
+
+    // =========================================================
+    // 真正送 Audio
+    // =========================================================
+
+    private async Task SendAudioMessageAsync(
+        byte[] pcmBytes,
+        CancellationToken token)
+    {
+        if (
+            pcmBytes == null ||
+            pcmBytes.Length == 0
+        )
+        {
+            return;
+        }
+
+
+        string base64Audio =
+            Convert.ToBase64String(
+                pcmBytes
+            );
+
+
+        InputAudioMessage message =
+            new InputAudioMessage
+            {
+                message_type =
+                    "input_audio_chunk",
+
+                audio_base_64 =
+                    base64Audio
+            };
+
+
+        string json =
+            JsonUtility.ToJson(
+                message
+            );
+
+
+        byte[] jsonBytes =
+            Encoding.UTF8.GetBytes(
+                json
+            );
+
+
+        await webSocket.SendAsync(
+            new ArraySegment<byte>(
+                jsonBytes
+            ),
+
+            WebSocketMessageType.Text,
+
+            true,
+
+            token
+        );
+    }
+
+
+    // =========================================================
+    // 真正送 Commit
+    // =========================================================
+
+    private async Task SendCommitMessageAsync(
+        CancellationToken token)
+    {
+        byte[] silence =
+            new byte[
+                ChunkSamples * 2
+            ];
+
+
+        CommitAudioMessage message =
+            new CommitAudioMessage
+            {
+                message_type =
+                    "input_audio_chunk",
+
+                audio_base_64 =
+                    Convert.ToBase64String(
+                        silence
+                    ),
+
+                commit = true
+            };
+
+
+        string json =
+            JsonUtility.ToJson(
+                message
+            );
+
+
+        byte[] jsonBytes =
+            Encoding.UTF8.GetBytes(
+                json
+            );
+
+
+        await webSocket.SendAsync(
+            new ArraySegment<byte>(
+                jsonBytes
+            ),
+
+            WebSocketMessageType.Text,
+
+            true,
+
+            token
+        );
+
+
+        Debug.Log(
+            "📨 已送出 STT 強制 commit"
+        );
+    }
+
+
+    // =========================================================
+    // Unity float → PCM16
     // =========================================================
 
     private byte[] ConvertFloatToPcm16(
@@ -429,7 +787,8 @@ public class ElevenLabsRealtimeSttService
     {
         byte[] bytes =
             new byte[
-                samples.Length * 2
+                samples.Length *
+                2
             ];
 
 
@@ -453,121 +812,32 @@ public class ElevenLabsRealtimeSttService
             short pcmSample =
                 (short)(
                     sample < 0
-                    ? sample * 32768f
-                    : sample * 32767f
-                );
-
-
-            // Little-endian
-            bytes[byteIndex++] =
-                (byte)(
-                    pcmSample & 0xFF
+                    ? sample *
+                      32768f
+                    : sample *
+                      32767f
                 );
 
 
             bytes[byteIndex++] =
                 (byte)(
-                    (pcmSample >> 8)
-                    & 0xFF
+                    pcmSample &
+                    0xFF
+                );
+
+
+            bytes[byteIndex++] =
+                (byte)(
+                    (
+                        pcmSample >>
+                        8
+                    ) &
+                    0xFF
                 );
         }
 
 
         return bytes;
-    }
-
-
-    // =========================================================
-    // PCM → Base64 → ElevenLabs
-    // =========================================================
-
-    private async Task SendAudioAsync(
-        byte[] pcmBytes)
-    {
-        if (
-            webSocket == null ||
-            webSocket.State !=
-            WebSocketState.Open ||
-            cancellation == null
-        )
-        {
-            return;
-        }
-
-
-        await sendLock.WaitAsync();
-
-
-        try
-        {
-            if (
-                webSocket == null ||
-                webSocket.State !=
-                WebSocketState.Open ||
-                cancellation == null
-            )
-            {
-                return;
-            }
-
-
-            string base64Audio =
-                Convert.ToBase64String(
-                    pcmBytes
-                );
-
-
-            InputAudioMessage message =
-                new InputAudioMessage
-                {
-                    message_type =
-                        "input_audio_chunk",
-
-                    audio_base_64 =
-                        base64Audio
-                };
-
-
-            string json =
-                JsonUtility.ToJson(
-                    message
-                );
-
-
-            byte[] jsonBytes =
-                Encoding.UTF8.GetBytes(
-                    json
-                );
-
-
-            await webSocket.SendAsync(
-                new ArraySegment<byte>(
-                    jsonBytes
-                ),
-
-                WebSocketMessageType.Text,
-
-                true,
-
-                cancellation.Token
-            );
-        }
-        catch (
-            OperationCanceledException
-        )
-        {
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError(
-                $"❌ STT Audio 傳送失敗：" +
-                $"{ex.Message}"
-            );
-        }
-        finally
-        {
-            sendLock.Release();
-        }
     }
 
 
@@ -588,12 +858,12 @@ public class ElevenLabsRealtimeSttService
                 !token.IsCancellationRequested &&
                 webSocket != null &&
                 webSocket.State ==
-                WebSocketState.Open
+                    WebSocketState.Open
             )
             {
                 using (
                     System.IO.MemoryStream stream =
-                    new System.IO.MemoryStream()
+                        new System.IO.MemoryStream()
                 )
                 {
                     WebSocketReceiveResult result;
@@ -602,12 +872,13 @@ public class ElevenLabsRealtimeSttService
                     do
                     {
                         result =
-                            await webSocket.ReceiveAsync(
-                                new ArraySegment<byte>(
-                                    receiveBuffer
-                                ),
-                                token
-                            );
+                            await webSocket
+                                .ReceiveAsync(
+                                    new ArraySegment<byte>(
+                                        receiveBuffer
+                                    ),
+                                    token
+                                );
 
 
                         if (
@@ -625,6 +896,7 @@ public class ElevenLabsRealtimeSttService
                             result.Count
                         );
                     }
+
                     while (
                         !result.EndOfMessage
                     );
@@ -651,11 +923,13 @@ public class ElevenLabsRealtimeSttService
                 }
             }
         }
+
         catch (
             OperationCanceledException
         )
         {
         }
+
         catch (Exception ex)
         {
             if (
@@ -686,13 +960,18 @@ public class ElevenLabsRealtimeSttService
                 );
 
 
-            if (response == null)
+            if (
+                response == null
+            )
             {
                 return;
             }
 
 
+            // =================================================
             // Session Started
+            // =================================================
+
             if (
                 response.message_type ==
                 "session_started"
@@ -706,7 +985,10 @@ public class ElevenLabsRealtimeSttService
             }
 
 
+            // =================================================
             // Partial
+            // =================================================
+
             if (
                 response.message_type ==
                 "partial_transcript"
@@ -718,6 +1000,26 @@ public class ElevenLabsRealtimeSttService
                     )
                 )
                 {
+                    string cleanPartial =
+                        response.text.Trim();
+
+
+                    if (
+                        cleanPartial !=
+                        latestPartialText
+                    )
+                    {
+                        latestPartialText =
+                            cleanPartial;
+
+                        lastPartialChangedUtc =
+                            DateTime.UtcNow;
+
+                        autoCommitRequested =
+                            false;
+                    }
+
+
                     Debug.Log(
                         $"即時：{response.text}"
                     );
@@ -738,7 +1040,10 @@ public class ElevenLabsRealtimeSttService
             }
 
 
+            // =================================================
             // Final
+            // =================================================
+
             if (
                 response.message_type ==
                 "committed_transcript"
@@ -750,13 +1055,21 @@ public class ElevenLabsRealtimeSttService
                     )
                 )
                 {
+                    latestPartialText =
+                        "";
+
+                    lastPartialChangedUtc =
+                        DateTime.MinValue;
+
+                    autoCommitRequested =
+                        false;
+
+
                     Debug.Log(
                         $"✅ 最終：{response.text}"
                     );
 
 
-                    // 不等待 GPT，
-                    // 避免阻塞 STT ReceiveLoop。
                     if (
                         FinalTranscriptReceived !=
                         null
@@ -769,8 +1082,12 @@ public class ElevenLabsRealtimeSttService
                                 );
                     }
                 }
+
+
+                return;
             }
         }
+
         catch (Exception ex)
         {
             Debug.LogError(
@@ -813,10 +1130,19 @@ public class ElevenLabsRealtimeSttService
         sampleBuffer.Clear();
 
 
+        while (
+            outgoingQueue.TryDequeue(
+                out _
+            )
+        )
+        {
+        }
+
+
         if (
             webSocket != null &&
             webSocket.State ==
-            WebSocketState.Open
+                WebSocketState.Open
         )
         {
             try
@@ -830,6 +1156,22 @@ public class ElevenLabsRealtimeSttService
                     CancellationToken.None
                 );
             }
+
+            catch
+            {
+            }
+        }
+
+
+        if (
+            sendLoopTask != null
+        )
+        {
+            try
+            {
+                await sendLoopTask;
+            }
+
             catch
             {
             }
@@ -837,10 +1179,12 @@ public class ElevenLabsRealtimeSttService
 
 
         webSocket?.Dispose();
+
         webSocket = null;
 
 
         cancellation?.Dispose();
+
         cancellation = null;
 
 
@@ -849,28 +1193,77 @@ public class ElevenLabsRealtimeSttService
         );
     }
 
+
+    // =========================================================
+    // 跳過目前麥克風累積資料
+    // =========================================================
+
     public void SkipCurrentMicrophoneData()
     {
         if (
             microphoneClip == null ||
-            string.IsNullOrEmpty(microphoneName)
+            string.IsNullOrEmpty(
+                microphoneName
+            )
         )
         {
             return;
         }
+
 
         int currentPosition =
             Microphone.GetPosition(
                 microphoneName
             );
 
-        if (currentPosition >= 0)
+
+        if (
+            currentPosition >= 0
+        )
         {
             lastMicrophonePosition =
                 currentPosition;
 
             sampleBuffer.Clear();
+
+
+            while (
+                outgoingQueue.TryDequeue(
+                    out _
+                )
+            )
+            {
+            }
+
+
+            latestPartialText =
+                "";
+
+            lastPartialChangedUtc =
+                DateTime.MinValue;
+
+            autoCommitRequested =
+                false;
         }
+    }
+
+
+    // =========================================================
+    // Queue Message
+    // =========================================================
+
+    private enum OutgoingMessageType
+    {
+        Audio,
+        Commit
+    }
+
+
+    private class OutgoingMessage
+    {
+        public OutgoingMessageType Type;
+
+        public byte[] AudioBytes;
     }
 
 
@@ -884,6 +1277,17 @@ public class ElevenLabsRealtimeSttService
         public string message_type;
 
         public string audio_base_64;
+    }
+
+
+    [Serializable]
+    private class CommitAudioMessage
+    {
+        public string message_type;
+
+        public string audio_base_64;
+
+        public bool commit;
     }
 
 

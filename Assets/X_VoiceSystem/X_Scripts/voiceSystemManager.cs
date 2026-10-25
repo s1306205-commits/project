@@ -277,12 +277,31 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        sttService?.
-            UpdateMicrophone();
+        // =====================================================
+        // STT
+        // =====================================================
 
+        if (sttService != null)
+        {
+            // AI 說話期間不要讓 STT 自動強制 Commit
+            sttService.SetAutoCommitAllowed(
+                !IsAiActuallySpeaking()
+            );
+
+            sttService.UpdateMicrophone();
+        }
+
+
+        // =====================================================
+        // Barge-in
+        // =====================================================
 
         CheckBargeInCandidate();
 
+
+        // =====================================================
+        // AI Talk Animation
+        // =====================================================
 
         if (
             IsAiActuallySpeaking() &&
