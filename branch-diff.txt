@@ -1,0 +1,21 @@
+A	Assets/M_Robot.meta
+A	Assets/M_Robot/M_RobotAnimator.controller
+A	Assets/M_Robot/M_RobotAnimator.controller.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_basecolor.JPEG
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_basecolor.JPEG.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_metallic.JPEG
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_metallic.JPEG.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_normal.JPEG
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_normal.JPEG.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_rm.JPEG
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_rm.JPEG.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_roughness.JPEG
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbm/cute_robot_3d_model_roughness.JPEG.meta
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbx
+A	Assets/M_Robot/tripo_convert_233e15fa-fa26-4d78-8d12-b08164d96905.fbx.meta
+M	Assets/Scenes/ForestHub.unity
+M	Assets/X_Sprites/NotoSansCJKtc-Medium SDF.asset
+M	Assets/X_VoiceSystem/X_Scripts/voiceSystemManager.cs
+M	Assets/X_VoiceSystem/X_Services/ElevenLabsRealtimeSttService.cs
+M	ProjectSettings/EditorSettings.asset

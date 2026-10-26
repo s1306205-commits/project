@@ -1,2 +1,9 @@
-# Auto detect text files and perform LF normalization
+# Auto detect text files
 * text=auto
+
+# Git LFS for 3D models
+*.blend filter=lfs diff=lfs merge=lfs -text
+*.fbx filter=lfs diff=lfs merge=lfs -text
+
+# Legacy water models stored as regular Git files
+Assets/J_Sprite/ssk/forest/water/SUIMONO*/**/*.fbx -filter -diff -merge -text
