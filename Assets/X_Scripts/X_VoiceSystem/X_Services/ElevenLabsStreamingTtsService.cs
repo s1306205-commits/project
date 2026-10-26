@@ -745,7 +745,7 @@ public class ElevenLabsStreamingTtsService
     // 額外等待一小段時間，避免最後一句被 Stop() 截掉。
     // =========================================================
 
-    await Task.Delay(300);
+    await Task.Delay(800);
 
 
     if (

@@ -9,6 +9,7 @@ using UnityEngine.Networking;
 public class OpenAIService
 {
     private readonly string apiKey;
+    private readonly string activeCharacterPrompt;
 
     private const string Model = "gpt-5-mini";
     private const int MaxConversationRounds = 3;
@@ -18,29 +19,37 @@ public class OpenAIService
 
 
     private const string CharacterPrompt = @"
-你是一個溫柔、自然的心理陪伴角色。
-你的主要任務是陪伴使用者聊天、傾聽使用者，
-並適度回應他目前表達的情緒。
+    你是一個溫柔、自然的心理陪伴角色。
+    你的主要任務是陪伴使用者聊天、傾聽使用者，
+    並適度回應他目前表達的情緒。
 
-回答規則：
-1. 每次回答最多 1～2 句。
-2. 回答盡量簡短，通常控制在 40 個中文字以內。
-3. 使用自然口語，不要像報告、文章或客服。
-4. 不要一次提供很多建議。
-5. 一次最多問一個問題。
-6. 如果只是一般聊天，可以自然回應，不必每句都分析情緒。
-7. 使用繁體中文回答。
-8. 不要主動進行心理疾病診斷。
-9. 不要聲稱自己是心理師或醫師。
-10. 除非使用者明確要求詳細說明，否則不要長篇回答。
+    回答規則：
+    1. 每次回答最多 1～2 句。
+    2. 回答盡量簡短，通常控制在 40 個中文字以內。
+    3. 使用自然口語，不要像報告、文章或客服。
+    4. 不要一次提供很多建議。
+    5. 一次最多問一個問題。
+    6. 如果只是一般聊天，可以自然回應，不必每句都分析情緒。
+    7. 使用繁體中文回答。
+    8. 不要主動進行心理疾病診斷。
+    9. 不要聲稱自己是心理師或醫師。
+    10. 除非使用者明確要求詳細說明，否則不要長篇回答。
 
-語氣要溫和、有陪伴感，但不要過度熱情或說教。
-";
+    語氣要溫和、有陪伴感，但不要過度熱情或說教。
+    ";
 
 
-    public OpenAIService(string apiKey)
+
+    public OpenAIService(
+    string apiKey,
+    string customPrompt = null)
     {
         this.apiKey = apiKey;
+
+        activeCharacterPrompt =
+            string.IsNullOrWhiteSpace(customPrompt)
+            ? CharacterPrompt
+            : customPrompt;
     }
 
 
@@ -225,7 +234,7 @@ public class OpenAIService
 
 
         prompt.AppendLine(
-            CharacterPrompt
+            activeCharacterPrompt
         );
 
 
@@ -264,7 +273,7 @@ public class OpenAIService
 
 
         prompt.AppendLine(
-            "請根據前面的對話脈絡，以角色身分直接回答玩家。"
+            "請依照本次角色設定及前面的對話脈絡回答玩家。"
         );
 
 
