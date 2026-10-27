@@ -668,15 +668,7 @@ MonoBehaviour:
       m_Id: 9c3637ae-ed67-4108-adb6-8e76749686ad
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings:
-      - m_Name: 
-        m_Id: 93dcc7de-0fee-460e-94cd-f8c542fdd221
-        m_Path: <XRController>{RightHand}/{Primary2DAxis}
-        m_Interactions: 
-        m_Processors: 
-        m_Groups: 
-        m_Action: Right Hand Move
-        m_Flags: 0
+      m_SingletonActionBindings: []
       m_Flags: 0
     m_Reference: {fileID: 0}
 --- !u!114 &50884402
@@ -5897,7 +5889,7 @@ MonoBehaviour:
   m_TrackedDeviceDragThresholdMultiplier: 1.4
   m_TrackedScrollDeltaMultiplier: 5
   m_BypassUIToolkitEvents: 0
-  m_ActiveInputMode: 0
+  m_ActiveInputMode: 1
   m_MaxTrackedDeviceRaycastDistance: 1000
   m_EnableXRInput: 1
   m_EnableMouseInput: 1
@@ -6260,7 +6252,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &681665635
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6287,7 +6279,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 681665634}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
   m_Name: 
@@ -10055,7 +10047,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 807366009}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc42784cf147c0c48a680349fa168899, type: 3}
   m_Name: 
@@ -10743,7 +10735,15 @@ MonoBehaviour:
       m_Id: 28eb8597-ec5d-4f15-ba9c-9730d0a53bb8
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 0589c7ba-b16e-4a0a-a210-39befb0b2d1f
+        m_Path: <XRController>{LeftHand}/{PointerPosition}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Position
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_RotationAction:
@@ -10755,7 +10755,15 @@ MonoBehaviour:
       m_Id: b7e5e9a9-1f90-4643-9e13-d42a70a58df2
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: f490ed99-6c46-4be3-b480-a640b10995bb
+        m_Path: <XRController>{LeftHand}/{PointerRotation}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Rotation
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_IsTrackedAction:
@@ -10791,7 +10799,15 @@ MonoBehaviour:
       m_Id: 8754c842-1bf3-475a-89d2-331e30b179b4
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 46b7675d-685c-4a18-9bbf-22efa0bfbee0
+        m_Path: <XRController>{LeftHand}/{GripButton}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Select
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_SelectActionValue:
@@ -10839,7 +10855,15 @@ MonoBehaviour:
       m_Id: 753aded0-c08f-400b-95b1-160f7bc3c3bf
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: cd268a75-f77d-4bd0-9ca6-9937d4d4dd9f
+        m_Path: '*/{TriggerButton}'
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: UI Press
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_UIPressActionValue:
@@ -19968,7 +19992,7 @@ MonoBehaviour:
   m_AutoDeselect: 0
   m_TimeToAutoDeselect: 3
   m_EnableUIInteraction: 1
-  m_BlockUIOnInteractableSelection: 1
+  m_BlockUIOnInteractableSelection: 0
   m_AllowAnchorControl: 1
   m_UseForceGrab: 1
   m_RotateSpeed: 180
@@ -20015,7 +20039,15 @@ MonoBehaviour:
       m_Id: b4be562b-0e3c-40e2-b48e-7c70c9aa5954
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 3875d04e-06f0-4068-bdb9-1c9fa2ed74c5
+        m_Path: <XRController>{RightHand}/{PointerPosition}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Position
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_RotationAction:
@@ -20027,7 +20059,15 @@ MonoBehaviour:
       m_Id: 137ab7d7-ca6a-4bfe-94dc-2dea2b5d1270
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: a3a155d1-98fe-45b1-a59d-79d05e1e7b96
+        m_Path: <XRController>{RightHand}/{PointerRotation}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Rotation
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_IsTrackedAction:
@@ -20063,7 +20103,15 @@ MonoBehaviour:
       m_Id: bbf38442-02ee-4875-895e-988eef973c86
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 6acb76d2-77db-4c1f-8799-137d1021a22b
+        m_Path: <XRController>{RightHand}/{GripButton}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Select
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_SelectActionValue:
@@ -20111,7 +20159,15 @@ MonoBehaviour:
       m_Id: 216275c9-f2c3-47a8-acdf-a437378a21e9
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: b909c385-0ca7-415f-b5a3-d25eb98cd6c1
+        m_Path: <XRController>{RightHand}/{TriggerButton}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: UI Press
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
   m_UIPressActionValue:

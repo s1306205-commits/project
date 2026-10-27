@@ -52,7 +52,7 @@ public class ScenarioAIController : MonoBehaviour
     {
         // 從電腦環境變數讀取金鑰，不寫死在程式中
         string apiKey =
-            Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+            "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";
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
