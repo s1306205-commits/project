@@ -1,5 +1,6 @@
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TMPro;
 using UnityEngine;
@@ -26,9 +27,19 @@ public class ScenarioManager : MonoBehaviour
     [SerializeField] private Button choiceC;
     [SerializeField] private Button freeAnswerButton;
     [SerializeField] private Button restartButton;
+    [SerializeField] private Button nextButton;
+
+    [Header("題庫（依清單順序排列）")]
+    [SerializeField]
+    private List<ScenarioData> scenarios =
+        new List<ScenarioData>();
+
+    [SerializeField]
+    private bool loadFirstScenarioOnStart = true;
 
     [Header("AI 系統")]
-    [SerializeField] private ScenarioAIController scenarioAI;
+    [SerializeField]
+    private ScenarioAIController scenarioAI;
 
     [Header("NPC 語音")]
     [SerializeField]
@@ -38,188 +49,261 @@ public class ScenarioManager : MonoBehaviour
 
     public event Action OnFreeAnswerRequested;
 
-    private int currentScenario = 0;
+    private int currentScenario = -1;
     private int scenarioVersion = 0;
-
-    private string situation;
-    private string[] choices = new string[3];
-    private string npcRole;
+    private ScenarioData currentData;
 
     private void Awake()
     {
-        choiceA.onClick.AddListener(() => SelectChoice(0));
-        choiceB.onClick.AddListener(() => SelectChoice(1));
-        choiceC.onClick.AddListener(() => SelectChoice(2));
+        choiceA.onClick.AddListener(
+            () => SelectChoice(0));
 
-        freeAnswerButton.onClick.AddListener(RequestFreeAnswer);
-        restartButton.onClick.AddListener(StartScenario);
+        choiceB.onClick.AddListener(
+            () => SelectChoice(1));
+
+        choiceC.onClick.AddListener(
+            () => SelectChoice(2));
+
+        freeAnswerButton.onClick.AddListener(
+            RequestFreeAnswer);
+
+        restartButton.onClick.AddListener(
+            StartScenario);
+
+        nextButton.onClick.AddListener(
+            NextScenario);
+
+        SetChoiceButtonsActive(false);
+
+        restartButton.gameObject.SetActive(false);
+        nextButton.gameObject.SetActive(false);
     }
 
     private void Start()
     {
-        ConfigureScenario(0);
+        if (loadFirstScenarioOnStart)
+        {
+            ConfigureScenario(0);
+        }
     }
 
-    // 切換情境
+    // 根據題庫索引載入情境
     public void ConfigureScenario(int index)
     {
-        currentScenario = index;
-
-        switch (index)
+        if (index < 0 ||
+            index >= scenarios.Count ||
+            scenarios[index] == null)
         {
-            case 0:
-                // 情境一：人際衝突
-                npcRole = "同班同學";
-                situation =
-                    "情境：你在教室被同學嘲笑。\n" +
-                    "同學：你連這麼簡單的題目都不會喔？";
-
-                choices[0] = "我不喜歡你這樣說話。";
-                choices[1] = "你自己也沒多厲害啊！";
-                choices[2] = "先離開，尋求老師協助。";
-                break;
-
-            case 1:
-                // 情境二：課堂發言
-                npcRole = "老師";
-                situation =
-                    "情境：你在課堂上想回答問題，" +
-                    "但擔心答錯而猶豫。\n" +
-                    "老師：這一題有人知道答案嗎？" +
-                    "有沒有同學願意試試看？";
-
-                choices[0] = "老師，我想試著回答。";
-                choices[1] = "我有點不確定，但我想試試。";
-                choices[2] = "如果答錯大家會不會笑我?";
-                break;
-
-            case 2:
-                // 情境三：朋友誤會
-                npcRole = "朋友";
-                situation =
-                    "情境：你與朋友最近產生誤會，" +
-                    "彼此很少說話。\n" +
-                    "朋友：你最近為什麼都不跟我說話？";
-
-                choices[0] = "因為你最近很煩人。";
-                choices[1] = "我不想談論。";
-                choices[2] = "我們可以好好談談嗎？";
-                break;
-
-            default:
-                Debug.LogWarning("沒有這個情境：" + index);
-                return;
+            Debug.LogWarning(
+                "找不到情境索引：" + index);
+            return;
         }
 
-        // 修改三個按鈕顯示的文字
-        SetButtonText(choiceA, choices[0]);
-        SetButtonText(choiceB, choices[1]);
-        SetButtonText(choiceC, choices[2]);
+        currentScenario = index;
+        currentData = scenarios[index];
+
+        // 設定三個選項
+        SetButtonText(
+            choiceA, currentData.choiceA);
+
+        SetButtonText(
+            choiceB, currentData.choiceB);
+
+        SetButtonText(
+            choiceC, currentData.choiceC);
 
         StartScenario();
     }
 
-    private void SetButtonText(Button button, string value)
+    
+    public void ConfigureScenarioByCategory(string category)
+    {
+        for (int i = 0; i < scenarios.Count; i++)
+        {
+            if (scenarios[i] != null &&
+                scenarios[i].category == category)
+            {
+                ConfigureScenario(i);
+                return;
+            }
+        }
+
+        Debug.LogWarning("找不到情境類型：" + category);
+    }
+
+
+    private void SetButtonText(
+        Button button, string value)
     {
         TMP_Text label =
             button.GetComponentInChildren<TMP_Text>(true);
 
         if (label != null)
+        {
             label.text = value;
+        }
         else
-            Debug.LogWarning(button.name + " 找不到 TMP 文字");
+        {
+            Debug.LogWarning(
+                button.name + " 找不到 TMP 文字");
+        }
     }
 
-    
+    // 開始或重新開始目前情境
     public async void StartScenario()
     {
-        // 讓上一輪 AI 回答失效
+        if (currentData == null)
+        {
+            Debug.LogWarning("尚未選擇情境");
+            return;
+        }
+
         scenarioVersion++;
+        int myVersion = scenarioVersion;
 
+        // 取消上一輪 AI 請求
         if (scenarioAI != null)
+        {
             scenarioAI.CancelCurrentRequest();
+        }
 
-        // 暫時禁止再次操作
         CurrentState = ScenarioState.WaitingForAI;
+
         SetChoiceButtonsActive(false);
+
         restartButton.gameObject.SetActive(false);
+        nextButton.gameObject.SetActive(false);
 
-        // 停止上一輪語音
-        if (scenarioVoice != null)
-            await scenarioVoice.StopSpeechAsync();
+        Debug.Log("選項按鈕顯示程式已執行");
 
-        // 返回等待玩家選擇
+        Debug.Log("Choice A activeSelf: " +
+            choiceA.gameObject.activeSelf);
+
+        Debug.Log("Choice A activeInHierarchy: " +
+            choiceA.gameObject.activeInHierarchy);
+
+        // 停止上一輪 NPC 語音
+        try
+        {
+            if (scenarioVoice != null)
+            {
+                await scenarioVoice.StopSpeechAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning(
+                "停止上一輪語音失敗：" + ex.Message);
+        }
+
+        // 防止舊情境覆蓋新情境
+        if (myVersion != scenarioVersion)
+            return;
+
         CurrentState = ScenarioState.WaitingForChoice;
 
+        // 顯示情境
         situationText.gameObject.SetActive(true);
-        situationText.text = situation;
+        situationText.text = currentData.situation;
 
+        // 清除上一題結果
         resultText.text = "";
         feedbackText.text = "";
 
         resultText.gameObject.SetActive(false);
         feedbackText.gameObject.SetActive(false);
 
+        // 顯示選項
         SetChoiceButtonsActive(true);
+
         restartButton.gameObject.SetActive(true);
+        nextButton.gameObject.SetActive(false);
 
+        // NPC 待機
         if (scenarioVoice != null)
+        {
             scenarioVoice.PlayAnimation("Idle");
+        }
 
-        Debug.Log("情境重新開始");
+        Debug.Log(
+            "情境開始：" + currentData.scenarioID);
     }
 
+    // 玩家選擇 A、B、C
     public void SelectChoice(int choiceIndex)
     {
         if (CurrentState != ScenarioState.WaitingForChoice)
             return;
 
-        if (choiceIndex < 0 || choiceIndex >= choices.Length)
+        if (currentData == null)
             return;
 
-        string playerAnswer = choices[choiceIndex];
+        if (choiceIndex < 0 || choiceIndex > 2)
+            return;
+
+        string playerAnswer =
+            currentData.GetChoice(choiceIndex);
+
+        if (string.IsNullOrWhiteSpace(playerAnswer))
+        {
+            Debug.LogWarning("選項內容為空");
+            return;
+        }
 
         Debug.Log("玩家選擇：" + playerAnswer);
 
         _ = ProcessAIResponseAsync(playerAnswer);
     }
 
+    // 處理 AI 回應
     private async Task ProcessAIResponseAsync(
         string playerAnswer)
     {
-        if (scenarioAI == null || !scenarioAI.IsReady)
+        if (CurrentState != ScenarioState.WaitingForChoice &&
+            CurrentState != ScenarioState.WaitingForVoice)
         {
-            Debug.LogError("ScenarioAIController 尚未準備完成");
-            resultText.gameObject.SetActive(true);
-            resultText.text = "AI 尚未連線，請檢查設定。";
             return;
         }
 
+        int myVersion = scenarioVersion;
+
         CurrentState = ScenarioState.WaitingForAI;
 
-        int currentVersion = scenarioVersion;
+        SetChoiceButtonsActive(false);
 
-        // AI 思考時播放 Wait 動畫
+        nextButton.gameObject.SetActive(false);
+        restartButton.gameObject.SetActive(true);
+
+        resultText.gameObject.SetActive(true);
+        feedbackText.gameObject.SetActive(false);
+
+        feedbackText.text = "";
+
+        if (scenarioAI == null || !scenarioAI.IsReady)
+        {
+            Debug.LogError(
+                "ScenarioAIController 尚未準備完成");
+
+            resultText.text =
+                "AI 尚未連線，請檢查設定。";
+
+            return;
+        }
+
+        resultText.text = "正在思考...";
+
+        // AI 思考動畫
         if (scenarioVoice != null)
         {
             scenarioVoice.PlayAnimation("Wait");
         }
 
-        SetChoiceButtonsActive(false);
-
-        resultText.gameObject.SetActive(true);
-        feedbackText.gameObject.SetActive(false);
-
-        resultText.text = "正在思考...";
-        feedbackText.text = "";
-
-        restartButton.gameObject.SetActive(true);
-
         try
         {
             string aiSituation =
-                "目前NPC身分：" + npcRole + "\n" +
-                situation;
+                "目前NPC身分：" +
+                currentData.npcRole + "\n" +
+                currentData.situation;
 
             string response =
                 await scenarioAI.GenerateResponseAsync(
@@ -227,78 +311,91 @@ public class ScenarioManager : MonoBehaviour
                     playerAnswer
                 );
 
-            if (currentVersion != scenarioVersion)
+            if (myVersion != scenarioVersion)
                 return;
 
+            // 分離 NPC 回應與溝通回饋
             string npcResponse = response;
-            string feedback = "";
+            string feedback;
 
             const string npcTag = "NPC回應：";
             const string feedbackTag = "溝通回饋：";
 
-            int npcIndex = response.IndexOf(npcTag);
-            int feedbackIndex = response.IndexOf(feedbackTag);
+            int npcIndex =
+                response.IndexOf(
+                    npcTag,
+                    StringComparison.Ordinal);
 
-            if (npcIndex >= 0 && feedbackIndex > npcIndex)
+            int feedbackIndex =
+                response.IndexOf(
+                    feedbackTag,
+                    StringComparison.Ordinal);
+
+            if (npcIndex >= 0 &&
+                feedbackIndex > npcIndex)
             {
-                npcResponse = response.Substring(
-                    npcIndex + npcTag.Length,
-                    feedbackIndex - npcIndex - npcTag.Length
-                ).Trim();
+                npcResponse =
+                    response.Substring(
+                        npcIndex + npcTag.Length,
+                        feedbackIndex -
+                        npcIndex -
+                        npcTag.Length
+                    ).Trim();
 
-                feedback = response.Substring(
-                    feedbackIndex + feedbackTag.Length
-                ).Trim();
+                feedback =
+                    response.Substring(
+                        feedbackIndex +
+                        feedbackTag.Length
+                    ).Trim();
             }
             else
             {
-                feedback = "AI 未能分離回饋內容，請重新嘗試。";
+                feedback =
+                    "AI 未能分離回饋內容，請重新嘗試。";
             }
 
-            
             CurrentState = ScenarioState.ShowingResult;
 
             // 顯示 NPC 回應
             resultText.gameObject.SetActive(true);
             resultText.text = npcResponse;
 
-            // 先不顯示 AI 回饋
+            // 先隱藏回饋
             feedbackText.gameObject.SetActive(false);
 
-            // 隱藏四個選項
-            SetChoiceButtonsActive(false);
-
-            // 語音播放結束前，先隱藏 Restart
-            restartButton.gameObject.SetActive(true);
-
-            // 機器人說話
+            // NPC 說話
             if (scenarioVoice != null)
             {
-                await scenarioVoice.SpeakAsync(npcResponse);
+                await scenarioVoice.SpeakAsync(
+                    npcResponse);
             }
 
-            // 如果玩家已切換情境，不更新舊畫面
-            if (currentVersion != scenarioVersion)
+            if (myVersion != scenarioVersion)
                 return;
 
-            // 語音結束後，才顯示回饋
+            // 語音結束才顯示回饋
             feedbackText.text = feedback;
             feedbackText.gameObject.SetActive(true);
 
-            // 顯示 Restart
             restartButton.gameObject.SetActive(true);
 
+            // 有相同類型的下一題才顯示 Next
+            bool hasNext =
+                FindNextInSameCategory() >= 0;
+
+            nextButton.gameObject.SetActive(hasNext);
         }
         catch (OperationCanceledException)
         {
-            // 切換或重啟情境時取消請求
+            // 切換或重新開始時取消舊請求
         }
         catch (Exception ex)
         {
-            if (currentVersion != scenarioVersion)
+            if (myVersion != scenarioVersion)
                 return;
 
-            Debug.LogError("AI 回應失敗：" + ex.Message);
+            Debug.LogError(
+                "AI 回應失敗：" + ex.Message);
 
             ShowResult(
                 "AI 回應失敗，請重新嘗試。",
@@ -320,12 +417,19 @@ public class ScenarioManager : MonoBehaviour
         feedbackText.text = feedback;
 
         SetChoiceButtonsActive(false);
+
         restartButton.gameObject.SetActive(true);
+        nextButton.gameObject.SetActive(false);
     }
 
+    // 玩家選擇自由語音
     private void RequestFreeAnswer()
     {
         if (CurrentState != ScenarioState.WaitingForChoice)
+            return;
+
+        if (currentData == null ||
+            !currentData.allowFreeVoice)
             return;
 
         CurrentState = ScenarioState.WaitingForVoice;
@@ -338,11 +442,12 @@ public class ScenarioManager : MonoBehaviour
         resultText.text = "請開始說話...";
 
         restartButton.gameObject.SetActive(true);
+        nextButton.gameObject.SetActive(false);
 
         OnFreeAnswerRequested?.Invoke();
     }
 
-    // 未來接收 ElevenLabs STT 的辨識結果
+    // 接收 ElevenLabs STT 辨識結果
     public void SubmitSpokenAnswer(string playerText)
     {
         if (CurrentState != ScenarioState.WaitingForVoice)
@@ -353,38 +458,111 @@ public class ScenarioManager : MonoBehaviour
             CurrentState = ScenarioState.WaitingForChoice;
 
             resultText.gameObject.SetActive(false);
+
             SetChoiceButtonsActive(true);
+
             restartButton.gameObject.SetActive(false);
+            nextButton.gameObject.SetActive(false);
+
             return;
         }
 
         _ = ProcessAIResponseAsync(playerText);
     }
 
+    // 顯示或隱藏四個回答按鈕
     private void SetChoiceButtonsActive(bool active)
     {
         choiceA.gameObject.SetActive(active);
         choiceB.gameObject.SetActive(active);
         choiceC.gameObject.SetActive(active);
-        freeAnswerButton.gameObject.SetActive(active);
+
+        bool showFree =
+            active &&
+            currentData != null &&
+            currentData.allowFreeVoice;
+
+        freeAnswerButton.gameObject.SetActive(showFree);
     }
 
-    // 返回情境選單前可以呼叫
+    // 尋找同一類型的下一題
+    private int FindNextInSameCategory()
+    {
+        if (currentData == null)
+            return -1;
+
+        for (int i = currentScenario + 1;
+             i < scenarios.Count;
+             i++)
+        {
+            if (scenarios[i] != null &&
+                string.Equals(
+                    scenarios[i].category,
+                    currentData.category,
+                    StringComparison.Ordinal))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    // 下一題
+    public void NextScenario()
+    {
+        if (CurrentState != ScenarioState.ShowingResult)
+            return;
+
+        if (!feedbackText.gameObject.activeSelf)
+            return;
+
+        int nextIndex = FindNextInSameCategory();
+
+        if (nextIndex >= 0)
+        {
+            ConfigureScenario(nextIndex);
+        }
+    }
+
+    // 離開情境，返回選單
     public async void StopScenario()
     {
         scenarioVersion++;
+        int myVersion = scenarioVersion;
 
         if (scenarioAI != null)
+        {
             scenarioAI.CancelCurrentRequest();
+        }
 
         CurrentState = ScenarioState.ShowingResult;
 
         SetChoiceButtonsActive(false);
+
         restartButton.gameObject.SetActive(false);
+        nextButton.gameObject.SetActive(false);
 
-        if (scenarioVoice != null)
-            await scenarioVoice.StopSpeechAsync();
+        try
+        {
+            if (scenarioVoice != null)
+            {
+                await scenarioVoice.StopSpeechAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            if (myVersion == scenarioVersion)
+            {
+                Debug.LogWarning(
+                    "停止情境語音失敗：" +
+                    ex.Message);
+            }
+        }
 
-        Debug.Log("已離開目前情境");
+        if (myVersion == scenarioVersion)
+        {
+            Debug.Log("已離開目前情境");
+        }
     }
 }

@@ -10,52 +10,68 @@ public class CanvasSwitcher : MonoBehaviour
     [Header("情境管理器")]
     [SerializeField] private ScenarioManager scenarioManager;
 
-    private void Start()
+    private void Awake()
     {
-        ShowSelection();
+        // 啟動時顯示主選單
+        selectionCanvas.SetActive(true);
+        scenarioCanvas.SetActive(false);
+
+        Debug.Log("CanvasSwitcher：已初始化主選單");
     }
 
+    // 返回主選單
     public void ShowSelection()
     {
-        if (scenarioManager != null)
-            scenarioManager.StopScenario();
+        Debug.Log("Menu 按鈕已觸發");
 
-        scenarioCanvas.SetActive(false);
+        if (scenarioManager != null)
+        {
+            scenarioManager.StopScenario();
+        }
+
         selectionCanvas.SetActive(true);
+        scenarioCanvas.SetActive(false);
+
+        Debug.Log("已返回情境選擇畫面");
     }
 
+    // 人際衝突
     public void SelectConflict()
     {
-        OpenScenario(0);
+        OpenScenario("人際衝突");
     }
 
+    // 課堂表達
     public void SelectSpeaking()
     {
-        OpenScenario(1);
+        OpenScenario("課堂發言");
     }
 
+    // 壓力與情緒管理
     public void SelectFriendship()
     {
-        OpenScenario(2);
+        OpenScenario("壓力與情緒管理");
     }
 
-    private void OpenScenario(int index)
+    private void OpenScenario(string category)
     {
         if (scenarioManager == null)
         {
-            Debug.LogError("尚未連接 ScenarioManager");
+            Debug.LogError("ScenarioManager 未指定");
             return;
         }
 
-        // 載入對應劇情與選項
-        scenarioManager.ConfigureScenario(index);
+        Debug.Log("準備進入：" + category);
 
-        // 關閉選單
-        selectionCanvas.SetActive(false);
-
-        // 開啟情境面板
+        // 先開啟情境畫面
         scenarioCanvas.SetActive(true);
 
-        Debug.Log("已切換至情境：" + index);
+        // 再載入題目
+        scenarioManager.ConfigureScenarioByCategory(category);
+
+        // 關閉主選單
+        selectionCanvas.SetActive(false);
+
+        Debug.Log("已進入情境：" + category);
     }
 }

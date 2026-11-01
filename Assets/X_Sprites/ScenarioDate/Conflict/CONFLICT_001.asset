@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 0}
+  m_Name: CONFLICT_001
+  m_EditorClassIdentifier: Assembly-CSharp::ScenarioData
+  scenarioID: CONFLICT_001
+  category: "\u4EBA\u969B\u885D\u7A81"
+  title: "\u65B0\u60C5\u5883"
+  npcRole: "\u540C\u73ED\u540C\u5B78"
+  situation: "\u4F60\u5728\u6559\u5BA4\u88AB\u540C\u5B78\u5632\u7B11\u3002"
+  choiceA: ":\u6211\u4E0D\u559C\u6B61\u4F60\u9019\u6A23\u8AAA\u8A71\u3002"
+  choiceB: ":\u4F60\u81EA\u5DF1\u4E5F\u6C92\u591A\u53B2\u5BB3\u554A!"
+  choiceC: "\u5148\u96E2\u958B\uFF0C\u5C0B\u6C42\u8001\u5E2B\u5354\u52A9\u3002"
+  allowFreeVoice: 1

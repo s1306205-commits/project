@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 115008bb9fc540142a878a5fc8862946, type: 3}
+  m_Name: EMOTION_004
+  m_EditorClassIdentifier: 
+  scenarioID: EMOTION_004
+  category: "\u58D3\u529B\u8207\u60C5\u7DD2\u7BA1\u7406"
+  title: "\u65B0\u60C5\u5883"
+  npcRole: "\u670B\u53CB"
+  situation: "\u671F\u672B\u8003\u5FEB\u5230\u4E86\uFF0C\u89BA\u5F97\u975E\u5E38\u7DCA\u5F35\u3002"
+  choiceA: "\u548C\u670B\u53CB\u4E00\u8D77\u8B80\u66F8\uFF0C\u6E1B\u7DE9\u7126\u616E\u611F\u3002"
+  choiceB: "\u898F\u5F8B\u751F\u6D3B\uFF0C\u544A\u8A34\u81EA\u5DF1\u4E0D\u8981\u7DCA\u5F35\u3002"
+  choiceC: "\u71AC\u591C\u82E6\u8B80\uFF0C\u6DF1\u6015\u81EA\u5DF1\u8003\u4E0D\u597D\u3002"
+  allowFreeVoice: 1

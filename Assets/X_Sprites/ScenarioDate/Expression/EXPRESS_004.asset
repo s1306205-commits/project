@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 115008bb9fc540142a878a5fc8862946, type: 3}
+  m_Name: EXPRESS_004
+  m_EditorClassIdentifier: 
+  scenarioID: EXPRESS_004
+  category: "\u8AB2\u5802\u767C\u8A00"
+  title: "\u65B0\u60C5\u5883"
+  npcRole: "\u8001\u5E2B"
+  situation: "\u5728\u81EA\u7FD2\u6642\u9593\uFF0C\u6709\u554F\u984C\u60F3\u8981\u627E\u540C\u5B78\u8A0E\u8AD6\u3002"
+  choiceA: "\u8209\u624B\u554F\u8001\u5E2B"
+  choiceB: "\u76F4\u63A5\u554F\u540C\u5B78\uFF0C\u5373\u4F7F\u6253\u64FE\u5230\u5176\u4ED6\u4EBA\u4E5F\u6C92\u95DC\u4FC2\u3002"
+  choiceC: "\u5148\u8A18\u9304\u4E0B\u4F86\uFF0C\u4E0B\u8AB2\u518D\u554F\u3002"
+  allowFreeVoice: 1
