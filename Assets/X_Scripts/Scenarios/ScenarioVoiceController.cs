@@ -29,7 +29,7 @@ public class ScenarioVoiceController : MonoBehaviour
     private void Awake()
     {
         string apiKey =
-            Environment.GetEnvironmentVariable("ELEVENLABS_API_KEY");
+             "sk_ad23b99ade2545ba6d37d75eba786465b7a14264699dc33c";
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
@@ -65,10 +65,31 @@ public class ScenarioVoiceController : MonoBehaviour
 
     public async Task SpeakAsync(string text)
     {
-        if (ttsService == null ||
-            string.IsNullOrWhiteSpace(text) ||
-            isSpeaking)
+        Debug.Log(
+            "[NPC語音] 收到播放請求" +
+            " | TTS初始化：" + (ttsService != null) +
+            " | 正在說話：" + isSpeaking +
+            " | 文字長度：" + (text?.Length ?? 0)
+        );
+
+        if (ttsService == null)
+        {
+            Debug.LogError("[NPC語音] TTS Service 是 null！");
             return;
+        }
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            Debug.LogWarning("[NPC語音] 文字是空的！");
+            return;
+        }
+
+        if (isSpeaking)
+        {
+            Debug.LogWarning("[NPC語音] 因為 isSpeaking=true，跳過播放！");
+            return;
+        }
+
 
         isSpeaking = true;
 
