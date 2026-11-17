@@ -48,6 +48,15 @@ public class CompanionManager : MonoBehaviour
         }
     }
 
+    public void SetCompanionVisible(bool visible)
+    {
+        if (currentCompanion != null)
+        {
+            currentCompanion.SetActive(visible);
+        }
+    }
+
+
     private void Start()
     {
         foreach (GameObject companion in companions)

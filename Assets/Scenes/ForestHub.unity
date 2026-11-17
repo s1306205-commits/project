@@ -1093,7 +1093,7 @@ GameObject:
   - component: {fileID: 131902883}
   - component: {fileID: 131902882}
   - component: {fileID: 131902881}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3206,7 +3206,7 @@ GameObject:
   - component: {fileID: 322951104}
   - component: {fileID: 322951103}
   - component: {fileID: 322951102}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Terrain_(150.00, 0.00, 0.00)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4034,6 +4034,7 @@ GameObject:
   - component: {fileID: 507225014}
   - component: {fileID: 507225013}
   - component: {fileID: 507225015}
+  - component: {fileID: 507225016}
   m_Layer: 0
   m_Name: XR Origin (XR Rig)
   m_TagString: Player
@@ -4261,6 +4262,35 @@ MonoBehaviour:
   moveSpeed: 2
   runSpeed: 4
   turnSpeed: 90
+--- !u!114 &507225016
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 507225005}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81a45c649d5f08243bc2e669f9318ef3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  playerCamera: {fileID: 825166515}
+  dog: {fileID: 967007096}
+  movementState: {fileID: 507225014}
+  idleDistance: 3
+  idleHorizontalOffset: 0
+  runDistance: 3.5
+  runHorizontalOffset: 0.2
+  groundLayer:
+    serializedVersion: 2
+    m_Bits: 64
+  rayStartHeight: 10
+  rayDistance: 40
+  footOffset: 0
+  followSpeed: 3
+  verticalSpeed: 12
+  rotationSpeed: 5
+  rotationOffset: 0
 --- !u!4 &514773907 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 6444f46e22955cf4cb8c27c3310fe891, type: 3}
@@ -4671,7 +4701,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 598850402}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1332392459}
+        m_TargetAssemblyTypeName: BackpackMenu, Assembly-CSharp
+        m_MethodName: CloseBackpack
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &598850402
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -6922,6 +6964,50 @@ GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
   m_PrefabInstance: {fileID: 1829366986}
   m_PrefabAsset: {fileID: 0}
+--- !u!4 &967007096 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
+  m_PrefabInstance: {fileID: 1829366986}
+  m_PrefabAsset: {fileID: 0}
+--- !u!95 &967007097
+Animator:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 967007095}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: d49ee5d9d7e3fd64f857530970ab5e65, type: 2}
+  m_CullingMode: 1
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &967007098
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 967007095}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3725be84dcf87314cb7ab0386f4f0931, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  animator: {fileID: 967007097}
+  playerMovement: {fileID: 507225014}
+  dogVisual: {fileID: 0}
+  playerCamera: {fileID: 825166515}
+  rotationSpeed: 5
+  rotationOffset: 0
 --- !u!1001 &977204785
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8791,6 +8877,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   backpackPanel: {fileID: 79774324}
+  companionManager: {fileID: 100994134}
 --- !u!1001 &1335378336
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -11336,15 +11423,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: -8679921383154817045, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 39.01
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0
+      value: 5.7
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 36.87
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
       propertyPath: m_LocalRotation.w
@@ -11381,7 +11468,13 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 967007097}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 967007098}
   m_SourcePrefab: {fileID: 100100000, guid: 7b41c16c84b755d4e8bdbd7a24a6ff6e, type: 3}
 --- !u!1001 &1853539501
 PrefabInstance:
