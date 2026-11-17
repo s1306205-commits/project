@@ -73,6 +73,46 @@ public class VoiceSystemManager : MonoBehaviour
 
     private OpenAIService openAIService;
 
+    [Header("Companion")]
+    public CompanionManager companionManager;
+
+    private OpenAIService kiwiAIService;
+    private OpenAIService dogAIService;
+
+    private int activeCompanionIndex = -1;
+    private bool switchingCompanion = false;
+
+    // 防止舊的非同步切換覆蓋新的角色
+    private int companionChangeVersion = 0;
+
+    private const string KiwiPrompt = @"
+    你是一隻名叫 Kiwi 的奇異鳥，
+    在 VR 森林中陪伴玩家聊天。
+
+    你的個性溫柔、沉穩、善於傾聽。
+    玩家難過時，先理解玩家的感受。
+
+    使用繁體中文（台灣）。
+    每次回答 1～2 句，盡量不超過 40 字。
+    自然口語，一次最多問一個問題。
+    不主動診斷心理疾病。
+    ";
+
+    private const string DogPrompt = @"
+    你是一隻可愛、活潑、親切的小狗，
+    正在 VR 森林裡陪伴玩家聊天。
+
+    你喜歡鼓勵玩家，也願意認真傾聽。
+    玩家難過時先理解感受，不急著說教。
+
+    使用繁體中文（台灣）。
+    每次回答 1～2 句，盡量不超過 40 字。
+    自然口語，一次最多問一個問題。
+    不要一直汪汪叫。
+    不主動診斷心理疾病。
+    ";
+
+
     private ElevenLabsRealtimeSttService sttService;
 
     private ElevenLabsStreamingTtsService ttsService;
@@ -126,6 +166,129 @@ public class VoiceSystemManager : MonoBehaviour
 
     private float ignorePlayerSpeechUntil = 0f;
 
+    //
+
+
+    private void HandleCompanionChanged(int index)
+    {
+        companionChangeVersion++;
+
+        // 立即封鎖舊角色對話
+        switchingCompanion = true;
+        activeCompanionIndex = -1;
+        openAIService = null;
+
+        // 取消上一輪 AI 請求
+        conversationCancellation?.Cancel();
+
+        if (!changeWorkerRunning)
+        {
+            _ = ProcessCompanionChangesAsync();
+        }
+    }
+
+    private bool changeWorkerRunning = false;
+
+    private async Task ProcessCompanionChangesAsync()
+    {
+        changeWorkerRunning = true;
+
+        try
+        {
+            while (true)
+            {
+                int version = companionChangeVersion;
+
+                // 取消舊角色的 TTS
+                if (ttsService != null)
+                {
+                    await ttsService.StopSessionAsync();
+                }
+
+                // 等待舊對話完成
+                while (conversationBusy)
+                {
+                    await Task.Yield();
+                }
+
+                // 等待期間如果又切換了角色，
+                // 重新處理最新要求
+                if (version != companionChangeVersion)
+                    continue;
+
+                ttsTextBuffer.Clear();
+                subtitleBuffer.Clear();
+
+                lock (subtitleLock)
+                {
+                    pendingSubtitleText = "";
+                    subtitleUpdatePending = false;
+                }
+
+                subtitleController?.HideSubtitle();
+
+                aiTalkAnimationStarted = false;
+                bargeInTriggered = false;
+                ResetBargeInCandidate();
+
+                int index = companionManager != null
+                    ? companionManager.CurrentIndex
+                    : -1;
+
+                switch (index)
+                {
+                    case 0:
+                        openAIService = kiwiAIService;
+                        kiwiAnimation?.ResetCharacter();
+                        Debug.Log("🐦 已切換 Kiwi AI");
+                        break;
+
+                    case 1:
+                        openAIService = dogAIService;
+                        Debug.Log("🐶 已切換 Dog AI");
+                        break;
+
+                    default:
+                        openAIService = null;
+                        Debug.Log("目前沒有選擇角色");
+                        break;
+                }
+
+                activeCompanionIndex = index;
+
+                sttService?.SkipCurrentMicrophoneData();
+
+                ignorePlayerSpeechUntil =
+                    Time.realtimeSinceStartup + 0.5f;
+
+                break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError(
+                "角色切換失敗：" + ex.Message
+            );
+        }
+        finally
+        {
+            changeWorkerRunning = false;
+            switchingCompanion = false;
+
+            // 避免切換期間又收到新的角色選擇
+            int latestIndex = companionManager != null
+                ? companionManager.CurrentIndex
+                : -1;
+
+            if (activeCompanionIndex != latestIndex)
+            {
+                HandleCompanionChanged(latestIndex);
+            }
+        }
+    }
+
+
+
 
     // =========================================================
     // Start
@@ -176,10 +339,20 @@ public class VoiceSystemManager : MonoBehaviour
         // Services
         // =====================================================
 
-        openAIService =
-            new OpenAIService(
-                OpenAIKey
-            );
+
+        kiwiAIService = new OpenAIService(
+            OpenAIKey,
+            KiwiPrompt
+        );
+
+        dogAIService = new OpenAIService(
+            OpenAIKey,
+            DogPrompt
+        );
+
+        // 尚未選擇角色時不提供 AI 對話
+        openAIService = null;
+
 
 
         sttService =
@@ -224,6 +397,24 @@ public class VoiceSystemManager : MonoBehaviour
 
         try
         {
+
+            if (companionManager != null)
+            {
+                companionManager.OnCompanionChanged +=
+                    HandleCompanionChanged;
+
+                // 同步目前角色
+                HandleCompanionChanged(
+                    companionManager.CurrentIndex
+                );
+            }
+            else
+            {
+                Debug.LogError(
+                    "VoiceSystemManager 尚未指定 CompanionManager"
+                );
+            }
+
             await sttService.StartAsync();
 
 
@@ -311,8 +502,8 @@ public class VoiceSystemManager : MonoBehaviour
             aiTalkAnimationStarted = true;
 
 
-            kiwiAnimation?.
-                OnAiSpeechStarted();
+            if (activeCompanionIndex == 0)
+                kiwiAnimation?.OnAiSpeechStarted();
         }
     }
 
@@ -357,10 +548,8 @@ public class VoiceSystemManager : MonoBehaviour
 
         if (canStartPlayerConversation)
         {
-            kiwiAnimation?.
-                OnPlayerSpeechPartial(
-                    partial
-                );
+            if (activeCompanionIndex == 0)
+                kiwiAnimation?.OnPlayerSpeechPartial(partial);
         }
 
 
@@ -530,8 +719,8 @@ public class VoiceSystemManager : MonoBehaviour
         bargeInTriggered = true;
 
 
-        kiwiAnimation?.
-            OnPlayerBargeIn();
+        if (activeCompanionIndex == 0)
+            kiwiAnimation?.OnPlayerBargeIn();
 
 
         Debug.Log(
@@ -643,6 +832,12 @@ public class VoiceSystemManager : MonoBehaviour
     private async Task HandleFinalTranscriptAsync(
         string text)
     {
+        if (switchingCompanion ||
+            activeCompanionIndex < 0 ||
+            openAIService == null)
+        {
+            return;
+        }
         if (
             string.IsNullOrWhiteSpace(
                 text
@@ -671,10 +866,8 @@ public class VoiceSystemManager : MonoBehaviour
         }
 
 
-        kiwiAnimation?.
-            OnPlayerSpeechFinal(
-                text
-            );
+        if (activeCompanionIndex == 0)
+            kiwiAnimation?.OnPlayerSpeechFinal(text);
 
 
         // =====================================================
@@ -682,18 +875,28 @@ public class VoiceSystemManager : MonoBehaviour
         // 等上一輪完全離開
         // =====================================================
 
+
         if (conversationBusy)
         {
-            Debug.Log(
-                "⏳ 等待上一輪 AI 回答結束..."
-            );
-
+            Debug.Log("⏳ 等待上一輪 AI 回答結束...");
 
             while (conversationBusy)
             {
                 await Task.Yield();
             }
         }
+
+        // 無論是否有等待，都重新確認
+        if (switchingCompanion ||
+            activeCompanionIndex < 0 ||
+            openAIService == null)
+        {
+            return;
+        }
+
+        // 固定這輪所使用的 AI 角色
+        OpenAIService selectedAIService = openAIService;
+
 
 
         Debug.Log(
@@ -766,8 +969,7 @@ public class VoiceSystemManager : MonoBehaviour
             // =================================================
 
             string fullReply =
-                await openAIService
-                    .AskStreamingAsync(
+                await selectedAIService.AskStreamingAsync(
                         text,
 
                         delta =>
@@ -866,8 +1068,8 @@ public class VoiceSystemManager : MonoBehaviour
             // AI 說完 → Kiwi Think
             // =================================================
 
-            kiwiAnimation?.
-                OnAiSpeechFinished();
+            if (activeCompanionIndex == 0)
+                kiwiAnimation?.OnAiSpeechFinished();
 
 
             // =================================================
@@ -1200,6 +1402,11 @@ public class VoiceSystemManager : MonoBehaviour
 
     private async void OnDestroy()
     {
+        if (companionManager != null)
+        {
+            companionManager.OnCompanionChanged -=
+                HandleCompanionChanged;
+        }
         conversationCancellation?
             .Cancel();
 
